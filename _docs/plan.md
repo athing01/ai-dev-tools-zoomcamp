@@ -63,11 +63,14 @@ The user can optionally provide a contact address.
 
 ### Phone
 
-The user can provide a phone number.
+The user can optionally provide a phone number.
 
 ### Email
 
-The user can provide an email address.
+The user can optionally provide an email address.
+
+At least one of a phone number or an email address is required. If an email
+address is provided, it must be valid.
 
 ### Social Links
 
