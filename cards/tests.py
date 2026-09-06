@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from .forms import BusinessCardForm
@@ -90,6 +91,15 @@ class BusinessCardFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('email', form.errors)
 
+    def test_invalid_email_is_rejected_when_phone_is_provided(self):
+        data = self.valid_data()
+        data['email'] = 'not-an-email'
+
+        form = BusinessCardForm(data=data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('email', form.errors)
+
     def test_invalid_qr_destination_url_is_rejected(self):
         data = self.valid_data()
         data['qr_destination_url'] = 'not-a-url'
@@ -126,6 +136,44 @@ class BusinessCardFormTests(TestCase):
                 self.assertFalse(form.is_valid())
                 self.assertIn(required_name, form.errors)
 
+    def test_invalid_orientation_and_photo_choice_are_rejected(self):
+        for field in ('orientation', 'photo_choice'):
+            with self.subTest(field=field):
+                data = self.valid_data()
+                data[field] = 'invalid-choice'
+
+                form = BusinessCardForm(data=data)
+
+                self.assertFalse(form.is_valid())
+                self.assertIn(field, form.errors)
+
+    def test_with_photo_choice_is_valid_without_an_uploaded_file(self):
+        data = self.valid_data()
+        data['photo_choice'] = 'with_photo'
+
+        form = BusinessCardForm(data=data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_populated_optional_text_fields_are_retained(self):
+        data = self.valid_data()
+        optional_values = {
+            'name_en': 'Somchai Jaidee',
+            'role_th': 'นักพัฒนา',
+            'role_en': 'Developer',
+            'company_th': 'บริษัท ตัวอย่าง',
+            'company_en': 'Example Company',
+            'address': 'Bangkok, Thailand',
+            'social_links': 'https://example.com/social',
+        }
+        data.update(optional_values)
+
+        form = BusinessCardForm(data=data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        for field, value in optional_values.items():
+            self.assertEqual(form.cleaned_data[field], value)
+
 
 class HomePageTests(TestCase):
     def valid_data(self):
@@ -149,6 +197,34 @@ class HomePageTests(TestCase):
 
     def test_valid_submission_is_accepted_without_persistence(self):
         response = self.client.post(reverse('home'), data=self.valid_data())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Card information is valid.')
+
+    def test_invalid_submission_redisplays_errors_without_confirmation(self):
+        data = self.valid_data()
+        data['phone'] = ''
+        data['email'] = ''
+
+        response = self.client.post(reverse('home'), data=data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'Provide at least one of a phone number or an email address.',
+        )
+        self.assertNotContains(response, 'Card information is valid.')
+
+    def test_uploaded_photo_is_accepted_by_the_view(self):
+        data = self.valid_data()
+        data['photo_choice'] = 'with_photo'
+        data['photo'] = SimpleUploadedFile(
+            'photo.jpg',
+            b'image-data',
+            content_type='image/jpeg',
+        )
+
+        response = self.client.post(reverse('home'), data=data)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Card information is valid.')
