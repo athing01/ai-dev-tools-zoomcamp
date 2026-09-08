@@ -1,139 +1,204 @@
-# e-Business Card Generator
+# Plan: Shared Household Chores Manager
 
-## Goal
+## 1. Goal
 
-Create a simple web application that allows a user to create a digital business card from their personal and contact information.
+Build a small Django web app for managing shared household chores on a weekly cycle.
 
-The application should generate the completed business card as a PNG image, including a QR code that points to a URL provided by the user.
+The MVP focuses on four core capabilities:
 
-## User
+1. Weekly household chore list management
+2. Fair task allocation
+3. Task assignment and completion tracking
+4. Weekly history
 
-A person who wants to create a digital business card for sharing their contact information.
+The MVP uses one household/group only and does not require user login or authentication.
 
-## Product Specification
+## 2. Scope
 
-### Language
+### Members
 
-The user can select the primary language of the business card:
+- There is one household/group.
+- One person sets up the complete member list before the system is used.
+- Each member is identified by their name.
+- Members do not need to create accounts or log in.
 
-- Thai
-- English
+### Weekly round
 
-The primary language determines the main language used on the card.
+- The system works in weekly rounds: Monday through Sunday.
+- A new weekly round starts automatically.
+- A new round is based on the previous week's task list.
+- Members can add new tasks or bring previously inactive/removed tasks back into the current pending list.
+- Tasks from previous weeks are kept as history and are not edited retroactively.
 
-### Name
+### Initial / pending task list
 
-The user can provide:
+For the first task list:
 
-- Name in the primary language — required
-- Name in the other language — optional
+- Every member can add household chores.
+- The system collects all proposed chores into one list.
+- The system does not allow allocation to start until every member has added at least one task.
+- Once the list is complete, the full list is shown to everyone.
+- Every member must confirm **Ready for allocation**.
+- Allocation starts only after all members have confirmed.
 
-### Role
+For later weekly rounds:
 
-The user can provide:
+- The previous round's tasks are carried into the new round as pending tasks.
+- Members can add new tasks.
+- Members can remove a task from the current round without deleting its historical record.
+- Previously inactive tasks can be brought back into the current pending list.
+- Task cleanup/lifecycle should preserve history.
 
-- Thai role — optional
-- English role — optional
+## 3. Allocation rules
 
-The role does not have to exist in both languages.
+### Workload calculation
 
-For example, a user may select Thai as the primary language but provide only an English role.
+The system calculates each member's target number of tasks automatically.
 
-### Photo
+- The target workload is based on the total number of tasks and number of members.
+- Workloads should be distributed as evenly as possible.
+- The number of assigned tasks between any two members should differ by no more than 1.
 
-The user can:
+Examples:
 
-- Include a photo
-- Not use a photo
+- 10 tasks / 4 members -> 3, 3, 2, 2
+- 11 tasks / 4 members -> 3, 3, 3, 2
 
-The photo is optional.
+### Task selection
 
-### Company
+- Each member may select up to **target workload + 1** tasks.
+- The extra choice gives members some flexibility when several people want the same task.
 
-The user can optionally provide:
+### Conflict resolution
 
-- Company name in Thai
-- Company name in English
+When multiple members select the same task:
 
-The company information is optional to support freelancers and people who do not represent a company.
+1. First allocation round:
+   - Members may agree among themselves who should take the task.
+   - If they cannot agree, the task remains unassigned for this round.
 
-### Contact Address
+2. Second allocation round:
+   - The unassigned task is considered again.
+   - If members still cannot agree, the system randomly selects one of the eligible members.
+   - The selected member receives the task immediately; no additional confirmation is required.
 
-The user can optionally provide a contact address.
+The allocation process continues until all tasks are assigned.
 
-### Phone
+## 4. Task status
 
-The user can optionally provide a phone number.
+Each assigned task has two statuses:
 
-### Email
+- `Not completed`
+- `Completed`
 
-The user can optionally provide an email address.
+The member responsible for a task marks it **Completed** when the chore is finished.
 
-At least one of a phone number or an email address is required. If an email
-address is provided, it must be valid.
+At the start of the next weekly round:
 
-### Social Links
+- Recurring household tasks return to `Pending` automatically.
+- The previous week's assignment/status remains available in history.
 
-The user can optionally provide additional social links.
+## 5. Weekly history
 
-### QR Destination
+The system keeps each weekly round as separate historical data.
 
-The user can provide a URL.
+Members can view previous weeks and see:
 
-The generated QR code should point to this URL.
+- The tasks in that week
+- Who was responsible for each task
+- Whether each task was completed
 
-The application does not need to create or host the destination page.
+Historical rounds should be read-only from the normal user workflow.
 
-## Card Layout
+## 6. Task lifecycle
 
-The user can choose between:
+A task can move through this general lifecycle:
 
-- Portrait
-- Landscape
+`Pending -> Assigned -> Completed`
 
-The user can also choose whether the card uses a photo.
+For the next weekly round, routine tasks return to:
 
-The MVP therefore supports four layout combinations:
+`Completed -> Pending`
 
-1. Portrait with photo
-2. Portrait without photo
-3. Landscape with photo
-4. Landscape without photo
+A task that is not used for a period may become inactive.
 
-## Output
+Planned cleanup rule:
 
-After entering the information and selecting the layout, the user can generate a business card as a PNG image.
+- If a task is still used again within one month, keep it.
+- If it has not been used for more than one month, it may be considered inactive.
 
-The generated PNG should contain:
+For the MVP, inactivity should be handled conservatively and should not delete historical records. Automatic permanent deletion is out of scope.
 
-- The supplied business-card information
-- The selected layout
-- The photo when selected and provided
-- The QR code generated from the supplied URL
+## 7. Main user flow
 
-## MVP Features
+### First setup
 
-The specification settles on four main features:
+1. Set up the household member list.
+2. Each member adds at least one chore.
+3. System shows the complete initial task list.
+4. Every member clicks **Ready for allocation**.
+5. System calculates target workload for each member.
+6. Members select tasks (up to target + 1).
+7. Resolve duplicate selections by agreement.
+8. Leave unresolved tasks unassigned for the first allocation round.
+9. Reconsider unresolved tasks in the second allocation round.
+10. If still unresolved, randomly assign them.
+11. Show each member's assigned tasks.
 
-1. **Card Information** — enter and validate business-card information.
-2. **QR Code** — generate a QR code from a user-provided URL.
-3. **Card Layout** — choose portrait/landscape and whether to use a photo.
-4. **PNG Generation** — generate and download the completed business card as a PNG.
+### During the week
 
-## Out of Scope
+1. Members view their assigned tasks.
+2. A responsible member marks a task **Completed** when finished.
+3. Members can view the current weekly overview.
 
-The MVP does not include:
+### New week
 
-- JPG output
-- HTML profile pages
-- Profile hosting
-- Automatic profile URLs
-- Database-backed card storage
-- User accounts or authentication
-- Persistent card management
-- Drag-and-drop card editing
-- Custom template designer
-- Custom fonts or advanced visual customization
-- Social network API integrations
+1. A new weekly round starts automatically.
+2. Previous tasks are carried into the new round as pending tasks.
+3. Members add/remove/re-add tasks as needed.
+4. Every member confirms **Ready for allocation**.
+5. The allocation process runs again.
+6. The new round becomes the active weekly plan.
+7. Previous rounds remain available in history.
 
-These may be considered in a later version.
+## 8. MVP non-goals / future features
+
+These are intentionally outside the MVP:
+
+- Multiple households/groups
+- User accounts and authentication
+- Invitations
+- Voting to approve newly proposed chores
+- Notifications
+- Mobile app
+- Advanced analytics, scores, rankings, or gamification
+- Automatic permanent deletion of old tasks
+- Complex recurring schedules beyond the weekly round
+
+A future version may add a voting workflow for newly proposed chores after the initial list has been established.
+
+## 9. Technical direction
+
+- Framework: Django
+- Use a simple server-rendered web application for the MVP.
+- Keep the data model centered around:
+  - Household members
+  - Weekly rounds
+  - Tasks
+  - Per-round task assignments/status
+  - Allocation selections/conflicts
+- Preserve weekly rounds as separate records so historical data is not overwritten.
+
+## 10. Success criteria
+
+The MVP is successful when a household can:
+
+1. Set up its members.
+2. Collect the initial chore list collaboratively.
+3. Confirm that everyone is ready.
+4. Automatically calculate a balanced workload.
+5. Let members choose preferred chores.
+6. Resolve conflicts using agreement first and random fallback when needed.
+7. Track completion during the week.
+8. Start the next week automatically with the previous task set.
+9. Review previous weekly assignments and completion status.
