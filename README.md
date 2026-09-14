@@ -1,3 +1,8 @@
-# AI Dev Tools Zoomcamp 2026
+# AI Dev Tools Zoomcamp
 
-My work and homework for the DataTalksClub AI Dev Tools Zoomcamp 2026.
+Coursework for the DataTalksClub AI Dev Tools Zoomcamp.
+
+## Modules
+
+- [Module 1 — Household Chores](./module-1/)
+- [Module 2 — Mini Kanban Board](./module-2/)
