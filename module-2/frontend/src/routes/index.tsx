@@ -33,11 +33,9 @@ export const Route = createFileRoute("/")({
 });
 
 type FormState =
-  | { mode: "closed" }
-  | { mode: "create"; status: TaskStatus }
-  | { mode: "edit"; task: Task };
+  { mode: "closed" } | { mode: "create"; status: TaskStatus } | { mode: "edit"; task: Task };
 
-function BoardPage() {
+export function BoardPage() {
   const { data: tasks, isPending, isError, refetch } = useQuery(tasksQueryOptions);
   const [form, setForm] = useState<FormState>({ mode: "closed" });
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
