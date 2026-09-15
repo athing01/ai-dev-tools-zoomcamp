@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
+
 from taskflow_backend.app import create_app
-from taskflow_backend.domain.task import TaskStatus
+
 
 @pytest.fixture
 def client():
@@ -14,6 +15,13 @@ def test_get_tasks_empty(client):
     assert response.status_code == 200
     assert response.json() == []
 
+def test_get_tasks_multiple(client):
+    client.post("/api/tasks", json={"title": "T1"})
+    client.post("/api/tasks", json={"title": "T2"})
+    response = client.get("/api/tasks")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
 def test_create_task_success(client):
     payload = {"title": "Test Task", "description": "Desc", "status": "todo"}
     response = client.post("/api/tasks", json=payload)
@@ -24,6 +32,13 @@ def test_create_task_success(client):
     assert data["status"] == "todo"
     assert "id" in data
     assert "created_at" in data
+
+def test_create_task_response_shape(client):
+    response = client.post("/api/tasks", json={"title": "T"})
+    data = response.json()
+    expected_fields = {"id", "title", "description", "status", "created_at", "updated_at"}
+    assert set(data.keys()) == expected_fields
+    assert isinstance(data["id"], int)
 
 def test_create_task_defaults(client):
     payload = {"title": "Default Task"}
@@ -73,6 +88,16 @@ def test_patch_task_title(client):
     response = client.patch(f"/api/tasks/{task_id}", json={"title": "New"})
     assert response.status_code == 200
     assert response.json()["title"] == "New"
+
+def test_patch_task_response_shape(client):
+    c_res = client.post("/api/tasks", json={"title": "T"})
+    task_id = c_res.json()["id"]
+
+    response = client.patch(f"/api/tasks/{task_id}", json={"title": "New"})
+    data = response.json()
+    expected_fields = {"id", "title", "description", "status", "created_at", "updated_at"}
+    assert set(data.keys()) == expected_fields
+    assert isinstance(data["id"], int)
 
 def test_patch_task_description(client):
     c_res = client.post("/api/tasks", json={"title": "T", "description": "Old"})
