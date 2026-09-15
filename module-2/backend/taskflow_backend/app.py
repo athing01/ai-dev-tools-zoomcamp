@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from .domain.repositories import TaskRepository
 from typing import Optional
@@ -24,6 +25,14 @@ def create_app(repo: Optional[TaskRepository] = None) -> FastAPI:
         db_path = data_dir / "taskflow.db"
         repo = SqlAlchemyTaskRepository(db_path=str(db_path))
     app.dependency_overrides[get_repo] = lambda: repo
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     app.include_router(tasks_router)
     register_error_handlers(app)

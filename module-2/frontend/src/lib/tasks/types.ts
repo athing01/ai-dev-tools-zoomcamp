@@ -1,7 +1,7 @@
 export type TaskStatus = "todo" | "in_progress" | "done";
 
 export interface Task {
-  id: string;
+  id: number;
   title: string;
   description: string;
   status: TaskStatus;
@@ -50,6 +50,6 @@ export class ApiError extends Error {
 export interface TaskService {
   listTasks(): Promise<Task[]>;
   createTask(input: CreateTaskInput): Promise<Task>;
-  updateTask(id: string, input: UpdateTaskInput): Promise<Task>;
-  deleteTask(id: string): Promise<void>;
+  updateTask(id: number, input: UpdateTaskInput): Promise<Task>;
+  deleteTask(id: number): Promise<void>;
 }

@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { taskService } from "./mockTaskService";
+import { taskService } from "./taskService";
 import type { CreateTaskInput, Task, UpdateTaskInput } from "./types";
 
 export const tasksQueryOptions = queryOptions({
@@ -23,7 +23,7 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateTaskInput }) =>
+    mutationFn: ({ id, input }: { id: number; input: UpdateTaskInput }) =>
       taskService.updateTask(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
@@ -32,7 +32,7 @@ export function useUpdateTask() {
 export function useDeleteTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => taskService.deleteTask(id),
+    mutationFn: (id: number) => taskService.deleteTask(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 }
