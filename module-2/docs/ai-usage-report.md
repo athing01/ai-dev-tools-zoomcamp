@@ -181,3 +181,51 @@ FastAPI/in-memory repository implementation.
   deletion through a third app instance.
 - Ran the test suite in the WSL development environment rather than relying
   on the coding-agent sandbox for test execution.
+
+## 6. Frontend Integration and Behavior Tests
+
+### AI Tool
+- ChatGPT / GPT-5.6 Terra — planning and review
+- Codex CLI / Gemma 4 31B — frontend integration implementation
+- Codex / GPT-5.5 Medium — frontend behavior tests
+
+### Purpose
+Connect the TaskFlow frontend to the real backend API and add frontend
+behavior tests covering the core flows defined by the product specification
+and API contract.
+
+### Input
+The TaskFlow product specification, `module-2/openapi.yaml`,
+`module-2/AGENTS.md`, the backend implementation plan, and the existing
+frontend and backend implementation.
+
+### Output
+- Replaced the frontend mock task service with a REST API client.
+- Aligned frontend task IDs from `string` to `number` to match the contract.
+- Added narrowly scoped CORS configuration for the local frontend origin.
+- Added Vitest and React Testing Library for frontend behavior tests.
+- Added tests covering loading, listing, error handling, task creation,
+  task editing, deletion, and status changes.
+- Added frontend test configuration and setup.
+- Updated the frontend package manifest and `bun.lock` with the test tooling.
+
+### Human Review / Decisions
+- Kept `openapi.yaml` and the backend contract as the source of truth
+  when resolving the frontend string-ID mismatch.
+- Removed the mock service from the active frontend path rather than
+  changing the backend contract to match the prototype.
+- Limited CORS to the local Vite development origin.
+- Kept frontend tests focused on observable TaskFlow behavior rather than
+  visual details or implementation-specific snapshots.
+- Corrected test expectations where the existing form behavior sends both
+  title and description during task updates.
+- Mocked the Radix dropdown primitive in the status-change test to keep the
+  behavior test deterministic in the jsdom environment.
+- Kept unrelated formatting and pre-existing lint issues outside the scope
+  of this task.
+
+### Verification
+- Backend test suite: 77 tests passed.
+- Frontend behavior tests: 8 tests passed.
+- Frontend production build: passed.
+- `git diff --check`: passed.
