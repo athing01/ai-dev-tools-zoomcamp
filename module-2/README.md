@@ -40,12 +40,12 @@ In another terminal:
 ```
 cd module-2/frontend
 bun install
-bun run dev
+bun run dev -- --port 5173
 ```
 
-The frontend uses the backend API at:
+The frontend url:
 
-`http://localhost:8000`
+`http://localhost:5173`
 
 ## Tests
 
