@@ -6,7 +6,9 @@ from taskflow_backend.app import create_app
 
 @pytest.fixture
 def client():
-    app = create_app()
+    # Use a fresh in‑memory repository for each test to avoid state leakage.
+    from taskflow_backend.repositories.memory import InMemoryTaskRepository
+    app = create_app(repo=InMemoryTaskRepository())
     with TestClient(app) as c:
         yield c
 
