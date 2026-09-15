@@ -20,5 +20,6 @@ TaskFlow is a single-user personal Mini Kanban Board. The MVP supports creating,
 
 ## Completion discipline
 
-- Report changed files, commands run, test results, and known limitations after each task.
-- Update `docs/ai-usage-report.md` only for work that actually happened; never invent prompts, tool output, or review actions.
+- After each task, report changed files, commands run, test results, and known limitations to the human reviewer.
+- `docs/ai-usage-report.md` is maintained by the human owner. Do not create, modify, or update it unless the human explicitly asks you to do so.
+- When asked to update the AI usage report, record only work that actually happened; never invent prompts, tool output, review actions, or decisions.
