@@ -136,3 +136,48 @@ The TaskFlow product specification, `module-2/openapi.yaml`,
   SQLAlchemy/SQLite persistence to the database stage.
 - Reviewed the added API coverage and kept the test suite at 62 passing
   tests before moving to the SQLite stage.
+
+## 5. Database and SQLite Persistence
+
+### AI Tool
+- ChatGPT / GPT-5.6 Terra — planning and review
+- Codex CLI / gpt-oss-20b — implementation
+
+### Purpose
+Add SQLAlchemy/SQLite persistence and wire it into the production FastAPI
+application while preserving the in-memory repository for isolated API tests.
+Then verify persistence across application lifecycles at the API level.
+
+### Input
+The TaskFlow product specification, `module-2/openapi.yaml`,
+`module-2/AGENTS.md`, the backend implementation plan, and the existing
+FastAPI/in-memory repository implementation.
+
+### Output
+- SQLAlchemy repository implementation backed by SQLite.
+- SQLAlchemy ORM mapping and database/session setup.
+- Production app wiring to `module-2/backend/data/taskflow.db`.
+- Repository injection in `create_app()` so tests can continue to use
+  a fresh in-memory repository.
+- API-level SQLite persistence test using a temporary database.
+- `.gitignore` rule for the local SQLite database file.
+
+### Human Review / Decisions
+- Reviewed the SQLAlchemy repository implementation and kept the API layer
+  dependent on the repository protocol rather than the concrete database implementation.
+- Confirmed SQLite status values are stored as the contract values
+  `todo`, `in_progress`, and `done`.
+- Confirmed UTC timestamp handling, including normalization when SQLite
+  returns naive datetimes.
+- Chose `module-2/backend/data/taskflow.db` as the local development database
+  path and kept it out of version control.
+- Kept `create_app()` on SQLite by default, while allowing an explicit
+  repository to be injected for tests.
+- Updated API tests to use a fresh `InMemoryTaskRepository` per test so
+  test state does not leak into the persistent development database.
+- Added an API-level persistence test that creates and updates a task with
+  one app instance, verifies the data through a newly created app instance
+  using the same temporary SQLite file, deletes the task, and verifies the
+  deletion through a third app instance.
+- Ran the test suite in the WSL development environment rather than relying
+  on the coding-agent sandbox for test execution.
