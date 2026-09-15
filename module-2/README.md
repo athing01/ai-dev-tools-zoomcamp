@@ -38,7 +38,9 @@ uv run uvicorn taskflow_backend.app:create_app --factory --reload --host 127.0.0
 In another terminal:
 
 ```
-cd module-2/frontendbun installbun run dev
+cd module-2/frontend
+bun install
+bun run dev
 ```
 
 The frontend uses the backend API at:
@@ -50,19 +52,22 @@ The frontend uses the backend API at:
 ### Backend
 
 ```
-cd module-2/backenduv run pytest -q tests
+cd module-2/backend
+uv run pytest -q tests
 ```
 
 ### Frontend
 
 ```
-cd module-2/frontendbun run test
+cd module-2/frontend
+bun run test
 ```
 
 ## Production Build
 
 ```
-cd module-2/frontendbun run build
+cd module-2/frontend
+bun run build
 ```
 
 ## Database
@@ -97,5 +102,3 @@ TaskFlow supports:
 
 Authentication, multiple users, multiple boards, collaboration,  
 real-time features, and deployment are outside the Module 2 MVP.
-
-
