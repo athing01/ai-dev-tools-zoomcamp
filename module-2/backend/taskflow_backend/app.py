@@ -1,20 +1,22 @@
 from fastapi import FastAPI
+from .api.tasks import router as tasks_router, get_repo
+from .api.errors import register_error_handlers
+from .repositories.memory import InMemoryTaskRepository
 
 def create_app() -> FastAPI:
-    """
-    TaskFlow Backend App Factory.
-    
-    This function initializes the FastAPI application.
-    Business routes will be included here in later tasks.
-    """
     app = FastAPI(
         title="TaskFlow API",
         description="REST API for the TaskFlow personal Kanban board.",
         version="1.0.0",
     )
-    
-    # Routes will be added here (e.g., app.include_router(tasks_router))
-    
+
+    # Singleton repository for in-memory stage
+    repo = InMemoryTaskRepository()
+    app.dependency_overrides[get_repo] = lambda: repo
+
+    app.include_router(tasks_router)
+    register_error_handlers(app)
+
     return app
 
 if __name__ == "__main__":
