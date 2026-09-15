@@ -99,3 +99,40 @@ and `UpdateTaskInput`.
   of introducing a separate status endpoint.
 - Defined the OpenAPI contract as the source of truth for the backend
   implementation.
+
+## 4. Backend
+
+### AI Tool
+- ChatGPT / GPT-5.6 Terra — planning and review
+- Codex CLI / Gemma 4 31B — implementation
+
+### Purpose
+Implement a FastAPI backend against the OpenAPI contract, starting with
+an in-memory repository and tests for the key endpoints.
+
+### Input
+The TaskFlow product specification, `module-2/openapi.yaml`,
+`module-2/AGENTS.md`, and the backend implementation plan.
+
+### Output
+`module-2/backend/` containing:
+- FastAPI application and API routes for the four MVP endpoints.
+- Task domain model, status values, and Pydantic request/response schemas.
+- Repository protocol used by the API layer.
+- In-memory repository for the initial backend stage.
+- Contract-shaped validation and not-found error responses.
+- API and repository tests for the in-memory implementation.
+
+### Human Review / Decisions
+- Reviewed the backend structure and kept the API layer independent
+  of the repository implementation.
+- Confirmed that only the four endpoints defined in `openapi.yaml`
+  are implemented.
+- Confirmed positive integer task IDs, allowed status values,
+  default `todo` status, title trimming, and rejection of blank titles.
+- Reviewed the partial `PATCH` behavior and the `404` / `422` response
+  behavior against the contract.
+- Kept the in-memory repository as the first implementation and deferred
+  SQLAlchemy/SQLite persistence to the database stage.
+- Reviewed the added API coverage and kept the test suite at 62 passing
+  tests before moving to the SQLite stage.
