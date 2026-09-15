@@ -26,12 +26,12 @@ TaskFlow is a small personal Kanban board built as part of DataTalksClub AI Dev 
 
 ```
 cd module-2/backend
-uv run uvicorn taskflow_backend.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+uv run uvicorn taskflow_backend.app:create_app --factory --reload --host localhost --port 8000
 ```
 
-### Backend API:
+#### Backend API:
 
-`http://127.0.0.1:8000`
+`http://localhost:8000`
 
 ### Frontend
 
@@ -43,7 +43,7 @@ bun install
 bun run dev -- --port 5173
 ```
 
-The frontend url:
+#### Frontend URL:
 
 `http://localhost:5173`
 
