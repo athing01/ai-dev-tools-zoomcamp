@@ -6,3 +6,4 @@ Coursework for the DataTalksClub AI Dev Tools Zoomcamp.
 
 - [Module 1 — Household Chores](./module-1/)
 - [Module 2 — Mini Kanban Board](./module-2/)
+- [Module 3 — Test, Containerize, and Deploy TaskFlow](./module-3/)
