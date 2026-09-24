@@ -37,7 +37,7 @@ class TaskModel(Base):
     title = Column(String, nullable=False)
     description = Column(String, nullable=False, default="")
     status = Column(
-        SAEnum(TaskStatus, values_callable=lambda obj: [e.value for e in obj]),
+        SAEnum(TaskStatus, values_callable=lambda obj: [e.value for e in obj], name="task_status"),
         nullable=False,
     )
     created_at = Column(
