@@ -7,6 +7,9 @@ from taskflow_backend.app import create_app
 @pytest.fixture
 def client():
     # Use a fresh in‑memory repository for each test to avoid state leakage.
+    # CORS is configured via the environment variable (required by create_app).
+    import os
+    os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
     from taskflow_backend.repositories.memory import InMemoryTaskRepository
     app = create_app(repo=InMemoryTaskRepository())
     with TestClient(app) as c:

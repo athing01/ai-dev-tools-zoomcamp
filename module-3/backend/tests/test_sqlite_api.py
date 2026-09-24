@@ -13,8 +13,17 @@ def _make_app(tmp_path: Path) -> TestClient:
     share the same underlying database file which persists after the client
     context exits.
     """
+    import os
+    # CORS is required by create_app; set a default for tests.
+    os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
     db_file = tmp_path / "test.db"
-    repo = SqlAlchemyTaskRepository(db_path=str(db_file))
+    # Pass as a SQLite file URL
+    url = f"sqlite:///{db_file.resolve()}"
+    repo = SqlAlchemyTaskRepository(url)
+    # Unit tests use SQLite; create the tables explicitly (production relies on Alembic).
+    from sqlalchemy import create_engine
+    from taskflow_backend.db.base import Base
+    Base.metadata.create_all(create_engine(url))
     app = create_app(repo=repo)
     return TestClient(app)
 

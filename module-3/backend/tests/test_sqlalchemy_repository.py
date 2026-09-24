@@ -10,7 +10,13 @@ from taskflow_backend.repositories.sqlalchemy import SqlAlchemyTaskRepository
 def _create_repo(tmp_path):
     # Use a file in the temporary directory so each test gets a fresh database
     db_file = tmp_path / "test.db"
-    return SqlAlchemyTaskRepository(db_file)
+    url = f"sqlite:///{db_file.resolve()}"
+    repo = SqlAlchemyTaskRepository(url)
+    # Unit tests use SQLite; create the tables explicitly (production relies on Alembic).
+    from taskflow_backend.db.base import Base
+    from sqlalchemy import create_engine
+    Base.metadata.create_all(create_engine(url))
+    return repo
 
 
 def test_empty_repository(tmp_path):
