@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:f2b": "vitest run --config vitest.f2b.config.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
