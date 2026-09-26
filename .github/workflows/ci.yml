@@ -60,7 +60,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen
       - name: Run lint
-        run: bunx eslint . --rule 'prettier/prettier: off'
+        run: >-
+          bunx eslint . --rule 'prettier/prettier: off'
 
   frontend-unit:
     runs-on: ubuntu-latest
