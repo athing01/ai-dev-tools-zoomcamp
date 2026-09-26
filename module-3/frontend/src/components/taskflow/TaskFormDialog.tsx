@@ -92,10 +92,7 @@ export function TaskFormDialog({
         </div>
 
         <div>
-          <label
-            htmlFor="task-description"
-            className="mb-1 block text-xs font-semibold text-ink"
-          >
+          <label htmlFor="task-description" className="mb-1 block text-xs font-semibold text-ink">
             Description <span className="font-normal text-slate-soft">(optional)</span>
           </label>
           <textarea

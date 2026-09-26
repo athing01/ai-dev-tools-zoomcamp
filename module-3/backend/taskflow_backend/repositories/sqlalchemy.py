@@ -26,9 +26,8 @@ from typing import List
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from ..db.base import Base
 from ..db.models import TaskModel, row_to_task
-from ..domain.task import TaskStatus
+from ..domain.task import Task, TaskStatus
 from ..domain.repositories import TaskRepository
 
 

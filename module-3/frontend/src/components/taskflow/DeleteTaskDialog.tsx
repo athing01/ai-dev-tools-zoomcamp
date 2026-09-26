@@ -29,8 +29,8 @@ export function DeleteTaskDialog({ task, onClose }: DeleteTaskDialogProps) {
         Delete task?
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-slate-soft">
-        “<span className="font-semibold text-ink">{task?.title}</span>” will be permanently
-        removed from your board. This can't be undone.
+        “<span className="font-semibold text-ink">{task?.title}</span>” will be permanently removed
+        from your board. This can't be undone.
       </p>
       <div className="mt-6 flex items-center justify-end gap-2">
         <button

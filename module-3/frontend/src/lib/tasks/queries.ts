@@ -1,8 +1,4 @@
-import {
-  queryOptions,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { taskService } from "./taskService";
 import type { CreateTaskInput, Task, UpdateTaskInput } from "./types";

@@ -33,10 +33,7 @@ export function KanbanColumn({ status, tasks, onAdd, onEdit, onDelete }: KanbanC
   const meta = COLUMN_META[status];
 
   return (
-    <section
-      aria-label={meta.label}
-      className="glass-panel flex flex-col rounded-2xl p-4"
-    >
+    <section aria-label={meta.label} className="glass-panel flex flex-col rounded-2xl p-4">
       <div className="mb-4 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className={`size-2.5 rounded-full ${meta.dot}`} />

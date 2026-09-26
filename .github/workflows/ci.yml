@@ -1,0 +1,155 @@
+name: CI — Module 3
+
+on:
+  push:
+    paths:
+      - "module-3/**"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "module-3/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-3/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+      - name: Ruff F lint
+        run: uv run ruff check .
+
+  backend-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-3/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+      - name: Run unit tests
+        run: uv run pytest
+
+  frontend-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-3/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+      - name: Install dependencies
+        run: bun install --frozen
+      - name: Run lint
+        run: bunx eslint . --rule 'prettier/prettier: off'
+
+  frontend-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-3/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+      - name: Install dependencies
+        run: bun install --frozen
+      - name: Run unit tests
+        run: bun run test
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: taskflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+      - name: Install backend dependencies
+        working-directory: module-3/backend
+        run: uv sync --frozen --dev
+      - name: Install frontend dependencies
+        working-directory: module-3/frontend
+        run: bun install --frozen
+      - name: Run backend PostgreSQL integration tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+        working-directory: module-3/backend
+        run: uv run pytest ../tests/integration/ -v
+      - name: Start backend for F2B
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          CORS_ALLOWED_ORIGINS: http://localhost:3000
+        working-directory: module-3/backend
+        run: uv run uvicorn taskflow_backend.app:create_app --factory --host 0.0.0.0 --port 8000 &
+      - name: Wait for backend readiness
+        run: |
+          for i in $(seq 1 30); do
+            if response=$(curl -fsS http://127.0.0.1:8000/api/tasks); then
+              if echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); assert isinstance(d, list)" 2>/dev/null; then
+                echo "Backend ready"
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for backend ($i/30)..."
+            sleep 1
+          done
+
+          echo "Backend not ready after 30s"
+          exit 1
+      - name: Run F2B tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          VITE_API_BASE_URL: http://127.0.0.1:8000
+        working-directory: module-3/frontend
+        run: bun run test:f2b
+
+  container-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t taskflow-backend:ci module-3/backend
+      - name: Build frontend image
+        run: docker build --build-arg VITE_API_BASE_URL=http://localhost:8000 -t taskflow-frontend:ci module-3/frontend

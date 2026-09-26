@@ -1,6 +1,10 @@
 export function BoardSkeleton() {
   return (
-    <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3" aria-busy="true" aria-label="Loading tasks">
+    <div
+      className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3"
+      aria-busy="true"
+      aria-label="Loading tasks"
+    >
       {["To Do", "In Progress", "Done"].map((label) => (
         <section key={label} className="glass-panel rounded-2xl p-4">
           <div className="mb-4 flex items-center gap-2 px-1">
