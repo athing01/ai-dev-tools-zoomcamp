@@ -1,0 +1,789 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  TaskFlow Module 3 stable AWS infrastructure.
+  Architecture: public EC2 + Docker Compose, private RDS PostgreSQL,
+  ECR, S3 release artifacts, SSM, GitHub OIDC.
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.42.0.0/16
+
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.42.1.0/24
+
+  PrivateDbSubnet1Cidr:
+    Type: String
+    Default: 10.42.11.0/24
+
+  PrivateDbSubnet2Cidr:
+    Type: String
+    Default: 10.42.12.0/24
+
+  Ec2InstanceType:
+    Type: String
+    Default: t3.small
+
+  Ec2AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+  RdsInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+
+  RdsEngineVersion:
+    Type: String
+    Default: '16'
+
+  GitHubRepository:
+    Type: String
+    Default: athing01/ai-dev-tools-zoomcamp
+
+  GitHubBranch:
+    Type: String
+    Default: main
+
+Resources:
+
+  # ---------------------------------------------------------------------------
+  # Networking
+  # ---------------------------------------------------------------------------
+
+  TaskFlowVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: taskflow-vpc
+        - Key: Project
+          Value: taskflow
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: taskflow-igw
+        - Key: Project
+          Value: taskflow
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref TaskFlowVpc
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TaskFlowVpc
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: taskflow-public-a
+        - Key: Project
+          Value: taskflow
+
+  PrivateDbSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TaskFlowVpc
+      CidrBlock: !Ref PrivateDbSubnet1Cidr
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: taskflow-private-db-a
+        - Key: Project
+          Value: taskflow
+
+  PrivateDbSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TaskFlowVpc
+      CidrBlock: !Ref PrivateDbSubnet2Cidr
+      AvailabilityZone: !Select [2, !GetAZs '']
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: taskflow-private-db-b
+        - Key: Project
+          Value: taskflow
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TaskFlowVpc
+      Tags:
+        - Key: Name
+          Value: taskflow-public-rt
+        - Key: Project
+          Value: taskflow
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PrivateDbRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TaskFlowVpc
+      Tags:
+        - Key: Name
+          Value: taskflow-private-db-rt
+        - Key: Project
+          Value: taskflow
+
+  PrivateDbSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateDbRouteTable
+      SubnetId: !Ref PrivateDbSubnet1
+
+  PrivateDbSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateDbRouteTable
+      SubnetId: !Ref PrivateDbSubnet2
+
+  # ---------------------------------------------------------------------------
+  # Security Groups
+  # ---------------------------------------------------------------------------
+
+  Ec2AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TaskFlow public EC2 ingress for Caddy
+      VpcId: !Ref TaskFlowVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: taskflow-ec2-sg
+        - Key: Project
+          Value: taskflow
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: TaskFlow PostgreSQL private ingress from EC2 only
+      VpcId: !Ref TaskFlowVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref Ec2AppSecurityGroup
+          Description: PostgreSQL from TaskFlow EC2 only
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: taskflow-rds-sg
+        - Key: Project
+          Value: taskflow
+
+  # ---------------------------------------------------------------------------
+  # RDS PostgreSQL
+  # ---------------------------------------------------------------------------
+
+  RdsSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: TaskFlow private RDS subnets
+      SubnetIds:
+        - !Ref PrivateDbSubnet1
+        - !Ref PrivateDbSubnet2
+      Tags:
+        - Key: Name
+          Value: taskflow-rds-subnet-group
+        - Key: Project
+          Value: taskflow
+
+  TaskFlowDatabase:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: taskflow
+      DBName: taskflow
+      Engine: postgres
+      EngineVersion: !Ref RdsEngineVersion
+      DBInstanceClass: !Ref RdsInstanceClass
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: '50'
+      StorageType: gp3
+      StorageEncrypted: true
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 1
+      DeleteAutomatedBackups: true
+      CopyTagsToSnapshot: true
+      Port: 5432
+
+      MasterUsername: taskflow_admin
+      ManageMasterUserPassword: true
+
+      DBSubnetGroupName: !Ref RdsSubnetGroup
+      VPCSecurityGroups:
+        - !Ref RdsSecurityGroup
+
+      Tags:
+        - Key: Name
+          Value: taskflow-rds
+        - Key: Project
+          Value: taskflow
+
+  # ---------------------------------------------------------------------------
+  # EC2 IAM
+  # ---------------------------------------------------------------------------
+
+  TaskFlowEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: taskflow-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+      Policies:
+        - PolicyName: taskflow-ec2-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+
+              - Sid: EcrPull
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource:
+                  - !GetAtt BackendEcrRepository.Arn
+                  - !GetAtt FrontendEcrRepository.Arn
+
+              - Sid: EcrAuthorization
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+
+              - Sid: RuntimeParameters
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/taskflow/*
+
+              - Sid: SsmParameterDecrypt
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+              - Sid: ArtifactRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub ${ReleaseArtifactBucket.Arn}/deploy/*
+                  - !Sub ${ReleaseArtifactBucket.Arn}/manifests/*
+
+              - Sid: ArtifactBucketMetadata
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                Resource: !GetAtt ReleaseArtifactBucket.Arn
+
+              - Sid: ReleaseStateWrite
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${ReleaseArtifactBucket.Arn}/release-state/*
+
+              - Sid: WriteSsmOutputToCloudWatch
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub
+                  - '${LogGroupArn}:log-stream:*'
+                  - LogGroupArn: !Select [0, !Split [':*', !GetAtt TaskFlowSsmLogGroup.Arn]]
+
+              - Sid: DescribeSsmLogStreams
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                Resource: !GetAtt TaskFlowSsmLogGroup.Arn
+
+      Tags:
+        - Key: Project
+          Value: taskflow
+
+  TaskFlowInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: taskflow-ec2-profile
+      Roles:
+        - !Ref TaskFlowEc2Role
+
+  # ---------------------------------------------------------------------------
+  # EC2
+  # ---------------------------------------------------------------------------
+
+  TaskFlowInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref Ec2AmiId
+      InstanceType: !Ref Ec2InstanceType
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref Ec2AppSecurityGroup
+      IamInstanceProfile: !Ref TaskFlowInstanceProfile
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+
+      Tags:
+        - Key: Name
+          Value: taskflow-ec2
+        - Key: Project
+          Value: taskflow
+        - Key: TaskFlow
+          Value: true
+
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eu
+
+          install -d -m 0755 /opt/taskflow
+
+          if systemctl list-unit-files amazon-ssm-agent.service >/dev/null 2>&1; then
+            systemctl enable amazon-ssm-agent
+            systemctl start amazon-ssm-agent
+          fi
+
+  TaskFlowElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: taskflow-eip
+        - Key: Project
+          Value: taskflow
+
+  TaskFlowElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt TaskFlowElasticIp.AllocationId
+      InstanceId: !Ref TaskFlowInstance
+
+  # ---------------------------------------------------------------------------
+  # ECR
+  # ---------------------------------------------------------------------------
+
+  BackendEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: taskflow/backend
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Expire untagged images after 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep the newest 20 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["sha-"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 20
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Project
+          Value: taskflow
+        - Key: Component
+          Value: backend
+
+  FrontendEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: taskflow/frontend
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Expire untagged images after 7 days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": 7
+                },
+                "action": {
+                  "type": "expire"
+                }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep the newest 20 tagged images",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": ["sha-"],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 20
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Project
+          Value: taskflow
+        - Key: Component
+          Value: frontend
+
+  # ---------------------------------------------------------------------------
+  # S3 release artifact bucket
+  # ---------------------------------------------------------------------------
+
+  ReleaseArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      VersioningConfiguration:
+        Status: Enabled
+
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+
+          - Id: ExpireOldManifestVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+            Prefix: manifests/
+
+      Tags:
+        - Key: Name
+          Value: taskflow-release-artifacts
+        - Key: Project
+          Value: taskflow
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Logs
+  # ---------------------------------------------------------------------------
+
+  TaskFlowSsmLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /taskflow/ssm
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: taskflow
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions OIDC
+  # ---------------------------------------------------------------------------
+
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  GitHubDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: taskflow-github-deploy
+      MaxSessionDuration: 3600
+
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !GetAtt GitHubOidcProvider.Arn
+            Action:
+              - sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}
+
+      Policies:
+        - PolicyName: taskflow-github-deploy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+
+              - Sid: EcrPush
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource:
+                  - !GetAtt BackendEcrRepository.Arn
+                  - !GetAtt FrontendEcrRepository.Arn
+
+              - Sid: EcrAuthorization
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+
+              - Sid: EcrDescribeImages
+                Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                Resource:
+                  - !GetAtt BackendEcrRepository.Arn
+                  - !GetAtt FrontendEcrRepository.Arn
+
+              - Sid: ManifestWrite
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${ReleaseArtifactBucket.Arn}/manifests/*
+
+              - Sid: DeploymentBundleWrite
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub ${ReleaseArtifactBucket.Arn}/deploy/*
+
+              - Sid: ReleaseBucketLocation
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                Resource: !GetAtt ReleaseArtifactBucket.Arn
+
+              - Sid: SendDeploymentCommand
+                Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+
+              - Sid: SendDeploymentToTaggedInstance
+                Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+                Condition:
+                  StringEquals:
+                    ssm:resourceTag/TaskFlow: 'true'
+
+              - Sid: DeploymentCommandStatus
+                Effect: Allow
+                Action:
+                  - ssm:GetCommandInvocation
+                  - ssm:ListCommandInvocations
+                  - ssm:ListCommands
+                Resource: '*'
+
+              - Sid: CloudFormationChangeSet
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                Resource: '*'
+
+              - Sid: CloudFormationExecute
+                Effect: Allow
+                Action:
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:GetTemplate
+                  - cloudformation:ListStackResources
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/taskflow/*
+
+              - Sid: PassEc2RoleToCloudFormation
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !GetAtt TaskFlowEc2Role.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+
+      Tags:
+        - Key: Project
+          Value: taskflow
+
+Outputs:
+
+  VpcId:
+    Description: TaskFlow VPC ID
+    Value: !Ref TaskFlowVpc
+
+  PublicSubnetId:
+    Description: TaskFlow public subnet ID
+    Value: !Ref PublicSubnet
+
+  RdsEndpoint:
+    Description: Private RDS endpoint
+    Value: !GetAtt TaskFlowDatabase.Endpoint.Address
+
+  RdsPort:
+    Description: RDS PostgreSQL port
+    Value: !GetAtt TaskFlowDatabase.Endpoint.Port
+
+  Ec2InstanceId:
+    Description: TaskFlow EC2 instance ID
+    Value: !Ref TaskFlowInstance
+
+  Ec2ElasticIp:
+    Description: TaskFlow Elastic IP
+    Value: !Ref TaskFlowElasticIp
+
+  BackendEcrRepositoryUri:
+    Description: Backend ECR repository URI
+    Value: !GetAtt BackendEcrRepository.RepositoryUri
+
+  FrontendEcrRepositoryUri:
+    Description: Frontend ECR repository URI
+    Value: !GetAtt FrontendEcrRepository.RepositoryUri
+
+  ReleaseArtifactBucketName:
+    Description: S3 release artifact bucket
+    Value: !Ref ReleaseArtifactBucket
+
+  SsmLogGroupName:
+    Description: CloudWatch log group for deployment output
+    Value: !Ref TaskFlowSsmLogGroup
+
+  GithubDeploymentRoleArn:
+    Description: GitHub Actions deployment role ARN
+    Value: !GetAtt GitHubDeploymentRole.Arn
+
+  DatabaseUsernameParameterName:
+    Description: Reserved runtime SSM parameter name
+    Value: /taskflow/database/username
+
+  DatabasePasswordParameterName:
+    Description: Reserved runtime SSM parameter name
+    Value: /taskflow/database/password
+
+  DatabaseNameParameterName:
+    Description: Reserved runtime SSM parameter name
+    Value: /taskflow/database/name
+
+  CaddyAcmeEmailParameterName:
+    Description: Reserved Caddy ACME email SSM parameter name
+    Value: /taskflow/caddy/acme-email
