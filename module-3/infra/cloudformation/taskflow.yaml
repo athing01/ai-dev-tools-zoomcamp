@@ -799,6 +799,13 @@ Resources:
                 Resource:
                   - !GetAtt GitHubOidcProvider.Arn
 
+              - Sid: CloudFormationIamRolePolicyWrite
+                Effect: Allow
+                Action:
+                  - iam:PutRolePolicy
+                Resource:
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/taskflow-github-deploy
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
