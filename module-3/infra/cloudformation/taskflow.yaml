@@ -713,6 +713,14 @@ Resources:
                   - !GetAtt BackendEcrRepository.Arn
                   - !GetAtt FrontendEcrRepository.Arn
 
+              - Sid: CloudFormationEcrRepositoryRead
+                Effect: Allow
+                Action:
+                  - ecr:DescribeRepositories
+                Resource:
+                  - !GetAtt BackendEcrRepository.Arn
+                  - !GetAtt FrontendEcrRepository.Arn
+
               - Sid: ManifestWrite
                 Effect: Allow
                 Action:
