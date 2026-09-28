@@ -735,6 +735,13 @@ Resources:
                 Resource:
                   - !Sub ${ReleaseArtifactBucket.Arn}/deploy/*
 
+              - Sid: ReleaseStateRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub ${ReleaseArtifactBucket.Arn}/release-state/*
+
               - Sid: ReleaseBucketLocation
                 Effect: Allow
                 Action:
