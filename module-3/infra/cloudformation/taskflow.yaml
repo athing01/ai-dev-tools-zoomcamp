@@ -791,6 +791,7 @@ Resources:
                   - iam:GetRole
                 Resource:
                   - !GetAtt TaskFlowEc2Role.Arn
+                  - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/taskflow-github-deploy
 
               - Sid: CloudFormationOidcProviderRead
                 Effect: Allow
