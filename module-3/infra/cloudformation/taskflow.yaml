@@ -677,8 +677,8 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-              StringLike:
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}
+                token.actions.githubusercontent.com:sub: !Sub >-
+                  repo:athing01@323878310/ai-dev-tools-zoomcamp@1358349984:ref:refs/heads/${GitHubBranch}
 
       Policies:
         - PolicyName: taskflow-github-deploy
