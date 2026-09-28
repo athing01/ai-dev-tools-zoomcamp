@@ -764,6 +764,13 @@ Resources:
                   - cloudformation:CreateChangeSet
                 Resource: '*'
 
+              - Sid: CloudFormationSsmParameterRead
+                Effect: Allow
+                Action:
+                  - ssm:GetParameters
+                Resource:
+                  - arn:aws:ssm:ap-southeast-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
