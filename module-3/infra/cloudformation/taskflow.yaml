@@ -806,6 +806,13 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/taskflow-github-deploy
 
+              - Sid: CloudFormationRdsInstanceRead
+                Effect: Allow
+                Action:
+                  - rds:DescribeDBInstances
+                Resource:
+                  - !GetAtt TaskFlowDatabase.DBInstanceArn
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
