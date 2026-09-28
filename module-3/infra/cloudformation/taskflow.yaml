@@ -708,6 +708,7 @@ Resources:
                 Effect: Allow
                 Action:
                   - ecr:DescribeImages
+                  - ecr:BatchGetImage
                 Resource:
                   - !GetAtt BackendEcrRepository.Arn
                   - !GetAtt FrontendEcrRepository.Arn
