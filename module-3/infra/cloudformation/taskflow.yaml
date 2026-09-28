@@ -785,6 +785,13 @@ Resources:
                   - ec2:DescribeImages
                 Resource: '*'
 
+              - Sid: CloudFormationIamRoleRead
+                Effect: Allow
+                Action:
+                  - iam:GetRole
+                Resource:
+                  - !GetAtt TaskFlowEc2Role.Arn
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
