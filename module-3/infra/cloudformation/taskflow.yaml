@@ -792,6 +792,13 @@ Resources:
                 Resource:
                   - !GetAtt TaskFlowEc2Role.Arn
 
+              - Sid: CloudFormationOidcProviderRead
+                Effect: Allow
+                Action:
+                  - iam:GetOpenIDConnectProvider
+                Resource:
+                  - !GetAtt GitHubOidcProvider.Arn
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
