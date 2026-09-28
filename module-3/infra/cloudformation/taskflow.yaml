@@ -771,6 +771,12 @@ Resources:
                 Resource:
                   - arn:aws:ssm:ap-southeast-1::parameter/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 
+              - Sid: CloudFormationEc2ImageRead
+                Effect: Allow
+                Action:
+                  - ec2:DescribeImages
+                Resource: '*'
+
               - Sid: CloudFormationExecute
                 Effect: Allow
                 Action:
