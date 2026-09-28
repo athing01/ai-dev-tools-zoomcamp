@@ -1,0 +1,634 @@
+name: Deploy — Module 3
+
+on:
+  workflow_run:
+    workflows:
+      - CI — Module 3
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: module-3-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy release
+    runs-on: ubuntu-latest
+
+    # A PR-triggered upstream CI run has workflow_run.event == pull_request,
+    # so it cannot pass this deployment gate.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+
+    env:
+      AWS_REGION: ap-southeast-1
+      CLOUDFORMATION_STACK_NAME: taskflow
+      # T10: production frontend build-time configuration is fixed below.
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Validate release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # github.event.workflow_run.head_sha is the sole release identity.
+          # Do not replace this with github.sha or another ref.
+          if [[ ! "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid workflow_run.head_sha: ${RELEASE_SHA}" >&2
+            exit 1
+          fi
+
+          echo "Release SHA: ${RELEASE_SHA}"
+
+      - name: Check out the exact upstream CI release SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify checked-out commit is the release SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+
+          if [[ "${CHECKED_OUT_SHA}" != "${RELEASE_SHA}" ]]; then
+            echo "Checkout does not match the required release SHA." >&2
+            echo "Expected: ${RELEASE_SHA}" >&2
+            echo "Actual:   ${CHECKED_OUT_SHA}" >&2
+            exit 1
+          fi
+
+      - name: Detect infrastructure changes for T12
+        id: infra
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # T12 release-range model:
+          #
+          # The workflow inspects RELEASE_SHA^..RELEASE_SHA only.
+          #
+          # - Direct push with one release commit:
+          #   compares the pushed commit with its immediate predecessor.
+          #
+          # - Merge-to-main:
+          #   RELEASE_SHA^ is the merge commit's first parent, i.e. the main
+          #   branch state immediately before the merge. The diff therefore
+          #   captures all module-3/infra/** changes introduced by that merge.
+          #
+          # - Root commit:
+          #   compare the release commit with Git's empty tree.
+          #
+          # This is deterministic because the range is derived solely from the
+          # immutable workflow_run.head_sha commit graph, not the current branch
+          # tip. It intentionally assumes a single-release-commit or merge-to-main
+          # release model. A direct push containing multiple commits is supported
+          # as a release of the final commit only; infrastructure changes made in
+          # earlier commits of that same multi-commit push are not included unless
+          # they are also present in the final commit's first-parent diff.
+
+          if PARENT_SHA="$(git rev-parse "${RELEASE_SHA}^" 2>/dev/null)"; then
+            BASE_SHA="${PARENT_SHA}"
+          else
+            BASE_SHA="$(git hash-object -t tree /dev/null)"
+          fi
+
+          CHANGED_PATHS="$(
+            git diff --name-only "${BASE_SHA}" "${RELEASE_SHA}" -- module-3/infra/
+          )"
+
+          echo "T12 comparison range: ${BASE_SHA}..${RELEASE_SHA}"
+
+          if [[ -n "${CHANGED_PATHS}" ]]; then
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+            echo "Infrastructure changes detected:"
+            printf '%s\n' "${CHANGED_PATHS}"
+          else
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "No module-3/infra/** changes detected."
+          fi
+
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: arn:aws:iam::060622563960:role/taskflow-github-deploy
+          role-session-name: taskflow-p9-${{ github.event.workflow_run.head_sha }}
+
+      - name: Read deployed infrastructure outputs
+        id: stack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STACK_JSON="$(
+            aws cloudformation describe-stacks \
+              --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+              --region "${AWS_REGION}" \
+              --output json
+          )"
+
+          output_value() {
+            local output_key="$1"
+            local value
+
+            value="$(
+              jq -r --arg output_key "${output_key}" '
+                .Stacks[0].Outputs[]
+                | select(.OutputKey == $output_key)
+                | .OutputValue
+              ' <<< "${STACK_JSON}"
+            )"
+
+            if [[ -z "${value}" || "${value}" == "null" ]]; then
+              echo "Missing required stack output: ${output_key}" >&2
+              exit 1
+            fi
+
+            printf '%s' "${value}"
+          }
+
+          echo "release_bucket=$(output_value ReleaseArtifactBucketName)" >> "${GITHUB_OUTPUT}"
+          echo "backend_ecr_uri=$(output_value BackendEcrRepositoryUri)" >> "${GITHUB_OUTPUT}"
+          echo "frontend_ecr_uri=$(output_value FrontendEcrRepositoryUri)" >> "${GITHUB_OUTPUT}"
+          echo "ec2_instance_id=$(output_value Ec2InstanceId)" >> "${GITHUB_OUTPUT}"
+
+      - name: Configure Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate Docker to Amazon ECR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+          aws ecr get-login-password \
+            --region "${AWS_REGION}" \
+            | docker login \
+                --username AWS \
+                --password-stdin "${ECR_REGISTRY}"
+
+      - name: Check whether immutable ECR tags already exist
+        id: ecr_tags
+        shell: bash
+        env:
+          BACKEND_ECR_URI: ${{ steps.stack.outputs.backend_ecr_uri }}
+          FRONTEND_ECR_URI: ${{ steps.stack.outputs.frontend_ecr_uri }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_TAG="sha-${RELEASE_SHA}"
+
+          check_image_tag() {
+            local repository_uri="$1"
+            local output_name="$2"
+            local repository_name="${repository_uri#*/}"
+            local result
+            local error_file
+            local exit_code
+            local digest
+
+            error_file="$(mktemp)"
+
+            set +e
+            result="$(
+              aws ecr describe-images \
+                --repository-name "${repository_name}" \
+                --image-ids "imageTag=${IMAGE_TAG}" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text \
+                --region "${AWS_REGION}" 2>"${error_file}"
+            )"
+            exit_code=$?
+            set -e
+
+            if [[ "${exit_code}" -eq 0 ]]; then
+              if [[ ! "${result}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "Existing ECR image has an invalid digest: ${result}" >&2
+                exit 1
+              fi
+
+              echo "${output_name}_exists=true" >> "${GITHUB_OUTPUT}"
+              echo "${output_name}_digest=${result}" >> "${GITHUB_OUTPUT}"
+              echo "Immutable image already exists: ${repository_name}:${IMAGE_TAG}"
+              rm -f "${error_file}"
+              return
+            fi
+
+            if grep -q 'ImageNotFoundException' "${error_file}"; then
+              echo "${output_name}_exists=false" >> "${GITHUB_OUTPUT}"
+              echo "Image tag does not yet exist: ${repository_name}:${IMAGE_TAG}"
+              rm -f "${error_file}"
+              return
+            fi
+
+            echo "Unable to determine whether ECR image tag exists." >&2
+            cat "${error_file}" >&2
+            rm -f "${error_file}"
+            exit 1
+          }
+
+          check_image_tag "${BACKEND_ECR_URI}" "backend"
+          check_image_tag "${FRONTEND_ECR_URI}" "frontend"
+
+      - name: Build and push backend image when immutable tag is absent
+        if: steps.ecr_tags.outputs.backend_exists == 'false'
+        shell: bash
+        env:
+          BACKEND_ECR_URI: ${{ steps.stack.outputs.backend_ecr_uri }}
+        run: |
+          set -euo pipefail
+
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            --tag "${BACKEND_ECR_URI}:sha-${RELEASE_SHA}" \
+            module-3/backend
+
+      - name: Build and push frontend image when immutable tag is absent
+        if: steps.ecr_tags.outputs.frontend_exists == 'false'
+        shell: bash
+        env:
+          FRONTEND_ECR_URI: ${{ steps.stack.outputs.frontend_ecr_uri }}
+        run: |
+          set -euo pipefail
+
+          # T10: production frontend build-time API base URL.
+          # This is public, non-secret configuration embedded into the frontend.
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg VITE_API_BASE_URL=https://api.zctaskflow.athing.cc \
+            --push \
+            --tag "${FRONTEND_ECR_URI}:sha-${RELEASE_SHA}" \
+            module-3/frontend
+
+      - name: Resolve and validate final ECR image digests
+        id: images
+        shell: bash
+        env:
+          BACKEND_ECR_URI: ${{ steps.stack.outputs.backend_ecr_uri }}
+          FRONTEND_ECR_URI: ${{ steps.stack.outputs.frontend_ecr_uri }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_TAG="sha-${RELEASE_SHA}"
+
+          resolve_digest() {
+            local repository_uri="$1"
+            local repository_name="${repository_uri#*/}"
+            local digest
+
+            digest="$(
+              aws ecr describe-images \
+                --repository-name "${repository_name}" \
+                --image-ids "imageTag=${IMAGE_TAG}" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text \
+                --region "${AWS_REGION}"
+            )"
+
+            if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "Invalid resolved ECR digest: ${digest}" >&2
+              exit 1
+            fi
+
+            printf '%s' "${digest}"
+          }
+
+          BACKEND_DIGEST="$(resolve_digest "${BACKEND_ECR_URI}")"
+          FRONTEND_DIGEST="$(resolve_digest "${FRONTEND_ECR_URI}")"
+
+          echo "backend_digest=${BACKEND_DIGEST}" >> "${GITHUB_OUTPUT}"
+          echo "frontend_digest=${FRONTEND_DIGEST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Apply CloudFormation only when infrastructure changed
+        if: steps.infra.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHANGE_SET_NAME="p9-${RELEASE_SHA}-$(date +%s)"
+
+          # Preserve all deployed parameter values. This avoids guessing values
+          # and ensures an application release does not alter stack inputs.
+          aws cloudformation describe-stacks \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --region "${AWS_REGION}" \
+            --output json \
+            | jq '
+                [
+                  .Stacks[0].Parameters[]
+                  | {
+                      ParameterKey: .ParameterKey,
+                      UsePreviousValue: true
+                    }
+                ]
+              ' > cloudformation-parameters.json
+
+          aws cloudformation create-change-set \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --change-set-name "${CHANGE_SET_NAME}" \
+            --change-set-type UPDATE \
+            --template-body file://module-3/infra/cloudformation/taskflow.yaml \
+            --parameters file://cloudformation-parameters.json \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region "${AWS_REGION}"
+
+          set +e
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --change-set-name "${CHANGE_SET_NAME}" \
+            --region "${AWS_REGION}"
+          WAIT_EXIT_CODE=$?
+          set -e
+
+          aws cloudformation describe-change-set \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --change-set-name "${CHANGE_SET_NAME}" \
+            --region "${AWS_REGION}" \
+            --output json > cloudformation-change-set.json
+
+          CHANGE_SET_STATUS="$(jq -r '.Status' cloudformation-change-set.json)"
+          STATUS_REASON="$(jq -r '.StatusReason // ""' cloudformation-change-set.json)"
+
+          # A FAILED change set with this reason means the checked-in
+          # infrastructure change has no effective deployed stack difference.
+          if [[ "${CHANGE_SET_STATUS}" == "FAILED" ]] && \
+             [[ "${STATUS_REASON}" == *"didn't contain changes"* ]]; then
+            echo "CloudFormation template has no effective stack changes."
+
+            aws cloudformation delete-change-set \
+              --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+              --change-set-name "${CHANGE_SET_NAME}" \
+              --region "${AWS_REGION}"
+
+            exit 0
+          fi
+
+          if [[ "${WAIT_EXIT_CODE}" -ne 0 ]] || [[ "${CHANGE_SET_STATUS}" != "CREATE_COMPLETE" ]]; then
+            echo "CloudFormation change set did not complete successfully." >&2
+            exit 1
+          fi
+
+          # Do not silently introduce replacement resources during P9.
+          if jq -e '
+            .Changes[]?
+            | select(
+                .ResourceChange.Replacement == "True" or
+                .ResourceChange.Replacement == "Conditional"
+              )
+          ' cloudformation-change-set.json > /dev/null; then
+            echo "CloudFormation change set contains a replacement." >&2
+            jq '
+              .Changes[]
+              | select(
+                  .ResourceChange.Replacement == "True" or
+                  .ResourceChange.Replacement == "Conditional"
+                )
+            ' cloudformation-change-set.json >&2
+            exit 1
+          fi
+
+          aws cloudformation execute-change-set \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --change-set-name "${CHANGE_SET_NAME}" \
+            --region "${AWS_REGION}"
+
+          aws cloudformation wait stack-update-complete \
+            --stack-name "${CLOUDFORMATION_STACK_NAME}" \
+            --region "${AWS_REGION}"
+
+      - name: Create and upload release manifest
+        id: manifest
+        shell: bash
+        env:
+          RELEASE_BUCKET: ${{ steps.stack.outputs.release_bucket }}
+          BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+        run: |
+          set -euo pipefail
+
+          MANIFEST_KEY="manifests/${RELEASE_SHA}.json"
+
+          jq -n \
+            --arg git_sha "${RELEASE_SHA}" \
+            --arg backend_digest "${BACKEND_DIGEST}" \
+            --arg frontend_digest "${FRONTEND_DIGEST}" \
+            '{
+              git_sha: $git_sha,
+              backend_digest: $backend_digest,
+              frontend_digest: $frontend_digest
+            }' > release-manifest.json
+
+          jq -e '
+            (.git_sha | test("^[0-9a-f]{40}$")) and
+            (.backend_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.frontend_digest | test("^sha256:[0-9a-f]{64}$"))
+          ' release-manifest.json > /dev/null
+
+          aws s3 cp \
+            release-manifest.json \
+            "s3://${RELEASE_BUCKET}/${MANIFEST_KEY}" \
+            --content-type application/json \
+            --region "${AWS_REGION}"
+
+          echo "key=${MANIFEST_KEY}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy through SSM using the existing EC2 deployment engine
+        id: ssm
+        shell: bash
+        env:
+          RELEASE_BUCKET: ${{ steps.stack.outputs.release_bucket }}
+          EC2_INSTANCE_ID: ${{ steps.stack.outputs.ec2_instance_id }}
+          MANIFEST_KEY: ${{ steps.manifest.outputs.key }}
+        run: |
+          set -euo pipefail
+
+          # deploy.sh remains the sole EC2 deployment engine.
+          # It owns image deployment, migrations, validation, and release-state.
+          DEPLOY_COMMAND="$(
+            printf 'exec env TASKFLOW_RELEASE_BUCKET=%q /opt/taskflow/deploy.sh %q' \
+              "${RELEASE_BUCKET}" \
+              "${MANIFEST_KEY}"
+          )"
+
+          jq -n \
+            --arg command "${DEPLOY_COMMAND}" \
+            '{
+              DocumentName: "AWS-RunShellScript",
+              Targets: [
+                {
+                  Key: "tag:TaskFlow",
+                  Values: ["true"]
+                }
+              ],
+              Parameters: {
+                commands: [$command]
+              },
+              CloudWatchOutputConfig: {
+                CloudWatchLogGroupName: "/taskflow/ssm",
+                CloudWatchOutputEnabled: true
+              },
+              MaxConcurrency: "1",
+              MaxErrors: "0",
+              TimeoutSeconds: 3600
+            }' > ssm-send-command.json
+
+          COMMAND_ID="$(
+            aws ssm send-command \
+              --cli-input-json file://ssm-send-command.json \
+              --region "${AWS_REGION}" \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          if [[ -z "${COMMAND_ID}" || "${COMMAND_ID}" == "None" ]]; then
+            echo "SSM Run Command did not return a command ID." >&2
+            exit 1
+          fi
+
+          echo "command_id=${COMMAND_ID}" >> "${GITHUB_OUTPUT}"
+          echo "SSM command ID: ${COMMAND_ID}"
+
+          # Poll for slightly longer than the 3600-second SSM command timeout
+          # so the workflow can observe the terminal status after the command timeout.
+          for attempt in $(seq 1 366); do
+            set +e
+            INVOCATION_JSON="$(
+              aws ssm get-command-invocation \
+                --command-id "${COMMAND_ID}" \
+                --instance-id "${EC2_INSTANCE_ID}" \
+                --region "${AWS_REGION}" \
+                --output json 2>&1
+            )"
+            INVOCATION_EXIT_CODE=$?
+            set -e
+
+            if [[ "${INVOCATION_EXIT_CODE}" -ne 0 ]]; then
+              if [[ "${attempt}" -eq 366 ]]; then
+                echo "${INVOCATION_JSON}" >&2
+                exit 1
+              fi
+
+              sleep 10
+              continue
+            fi
+
+            STATUS="$(jq -r '.Status' <<< "${INVOCATION_JSON}")"
+
+            case "${STATUS}" in
+              Success)
+                echo "SSM deployment completed successfully."
+                break
+                ;;
+              Pending|InProgress|Delayed)
+                sleep 10
+                ;;
+              *)
+                echo "SSM deployment failed with status: ${STATUS}" >&2
+                jq -r '.StandardOutputContent // ""' <<< "${INVOCATION_JSON}" >&2
+                jq -r '.StandardErrorContent // ""' <<< "${INVOCATION_JSON}" >&2
+                exit 1
+                ;;
+            esac
+
+            if [[ "${attempt}" -eq 366 ]]; then
+              echo "Timed out waiting for SSM deployment command ${COMMAND_ID}." >&2
+              exit 1
+            fi
+          done
+
+      - name: Verify P8 release state content
+        shell: bash
+        env:
+          RELEASE_BUCKET: ${{ steps.stack.outputs.release_bucket }}
+          BACKEND_ECR_URI: ${{ steps.stack.outputs.backend_ecr_uri }}
+          FRONTEND_ECR_URI: ${{ steps.stack.outputs.frontend_ecr_uri }}
+          BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_STATE_KEY="release-state/${RELEASE_SHA}.json"
+          EXPECTED_BACKEND_IMAGE="${BACKEND_ECR_URI}@${BACKEND_DIGEST}"
+          EXPECTED_FRONTEND_IMAGE="${FRONTEND_ECR_URI}@${FRONTEND_DIGEST}"
+
+          # GitHub Actions only verifies the state. deploy.sh writes it.
+          aws s3 cp \
+            "s3://${RELEASE_BUCKET}/${RELEASE_STATE_KEY}" \
+            release-state.json \
+            --region "${AWS_REGION}"
+
+          jq -e \
+            --arg git_sha "${RELEASE_SHA}" \
+            --arg backend_image "${EXPECTED_BACKEND_IMAGE}" \
+            --arg frontend_image "${EXPECTED_FRONTEND_IMAGE}" \
+            '
+              .git_sha == $git_sha and
+              .backend_image == $backend_image and
+              .frontend_image == $frontend_image
+            ' release-state.json > /dev/null
+
+          echo "Release state matches the requested SHA and resolved ECR digests."
+
+      - name: Smoke test public frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HTTP_STATUS="$(
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              https://app.zctaskflow.athing.cc/
+          )"
+
+          if [[ "${HTTP_STATUS}" != "200" ]]; then
+            echo "Frontend smoke test expected HTTP 200, got ${HTTP_STATUS}." >&2
+            exit 1
+          fi
+
+      - name: Smoke test public tasks API
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HTTP_STATUS="$(
+            curl \
+              --silent \
+              --show-error \
+              --location \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 5 \
+              --output api-tasks-response.json \
+              --write-out '%{http_code}' \
+              https://api.zctaskflow.athing.cc/api/tasks
+          )"
+
+          if [[ "${HTTP_STATUS}" != "200" ]]; then
+            echo "Tasks API smoke test expected HTTP 200, got ${HTTP_STATUS}." >&2
+            exit 1
+          fi
+
+          jq -e 'type == "array"' api-tasks-response.json > /dev/null
