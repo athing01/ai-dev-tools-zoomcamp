@@ -94,9 +94,9 @@ export function BoardPage() {
         <footer className="mt-6 flex items-center justify-between rounded-2xl border border-white/50 bg-white/30 px-5 py-3 text-xs text-slate-soft backdrop-blur-xl">
           <span className="flex items-center gap-2">
             <span className="size-2 rounded-full bg-emerald-400" />
-            Mock API connected · data resets on reload
+            API connected
           </span>
-          <span>TaskFlow prototype</span>
+          <span>AI Dev Tools Zoomcamp 2026</span>
         </footer>
       </div>
 
