@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: taskflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    volumes:
+      - taskflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: taskflow_backend:latest
+    container_name: taskflow_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/app/.venv/bin/alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://taskflow:taskflow@postgres:5432/taskflow
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: taskflow_backend:latest
+    container_name: taskflow_backend
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://taskflow:taskflow@postgres:5432/taskflow
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    image: taskflow_frontend:latest
+    container_name: taskflow_frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  taskflow_postgres_data:
