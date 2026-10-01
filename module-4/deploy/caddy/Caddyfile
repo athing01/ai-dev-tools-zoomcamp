@@ -1,0 +1,11 @@
+{
+    email {$ACME_EMAIL}
+}
+
+app.zctaskflow.athing.cc {
+    reverse_proxy frontend:3000
+}
+
+api.zctaskflow.athing.cc {
+    reverse_proxy backend:8000
+}
