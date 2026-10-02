@@ -8,17 +8,29 @@ readonly TASKFLOW_RELEASE_BUCKET="${TASKFLOW_RELEASE_BUCKET:?TASKFLOW_RELEASE_BU
 readonly MANIFEST_KEY="${1:?usage: deploy.sh <manifest-key>}"
 
 readonly TASKFLOW_RDS_HOST="${TASKFLOW_RDS_HOST:-taskflow.c1a6masuo5g2.ap-southeast-1.rds.amazonaws.com}"
-readonly TASKFLOW_APP_HOST="${TASKFLOW_APP_HOST:-app.zctaskflow.athing.cc}"
-readonly TASKFLOW_API_HOST="${TASKFLOW_API_HOST:-api.zctaskflow.athing.cc}"
+
+readonly TASKFLOW_APP_HOST="${TASKFLOW_APP_HOST:?TASKFLOW_APP_HOST is required}"
+readonly TASKFLOW_API_HOST="${TASKFLOW_API_HOST:?TASKFLOW_API_HOST is required}"
+readonly TASKFLOW_SSM_PARAMETER_PREFIX="${TASKFLOW_SSM_PARAMETER_PREFIX:?TASKFLOW_SSM_PARAMETER_PREFIX is required}"
+readonly DEPLOY_DIR="${DEPLOY_DIR:?DEPLOY_DIR is required}"
+readonly RELEASE_STATE_PREFIX="${RELEASE_STATE_PREFIX:?RELEASE_STATE_PREFIX is required}"
 
 readonly ECR_REGISTRY="${ECR_REGISTRY:-060622563960.dkr.ecr.ap-southeast-1.amazonaws.com}"
 readonly BACKEND_REPO="${BACKEND_REPO:-${ECR_REGISTRY}/taskflow/backend}"
 readonly FRONTEND_REPO="${FRONTEND_REPO:-${ECR_REGISTRY}/taskflow/frontend}"
 
-readonly DEPLOY_DIR="/opt/taskflow"
 readonly COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.ec2.yml"
 readonly RUNTIME_ENV="${DEPLOY_DIR}/runtime.env"
 readonly LOCK_DIR="${DEPLOY_DIR}/.deploy.lock"
+
+[[ "$MANIFEST_KEY" == manifests/m4/*.json ]] \
+    || fail "M4 manifest key required: manifests/m4/<release-sha>.json"
+
+[[ "$TASKFLOW_SSM_PARAMETER_PREFIX" =~ ^/taskflow/m4/(dev|prod)$ ]] \
+    || fail "invalid M4 SSM parameter prefix"
+
+[[ "$RELEASE_STATE_PREFIX" =~ ^release-state/m4/(dev|prod)$ ]] \
+    || fail "invalid M4 release-state prefix"
 
 MANIFEST_FILE=""
 STATE_FILE=""
@@ -130,28 +142,28 @@ echo "Retrieving runtime parameters..."
 
 DB_USER="$(aws ssm get-parameter \
     --region "$AWS_REGION" \
-    --name /taskflow/database/username \
+    --name "${TASKFLOW_SSM_PARAMETER_PREFIX}/database/username" \
     --with-decryption \
     --query 'Parameter.Value' \
     --output text)"
 
 DB_PASSWORD="$(aws ssm get-parameter \
     --region "$AWS_REGION" \
-    --name /taskflow/database/password \
+    --name "${TASKFLOW_SSM_PARAMETER_PREFIX}/database/password" \
     --with-decryption \
     --query 'Parameter.Value' \
     --output text)"
 
 DB_NAME="$(aws ssm get-parameter \
     --region "$AWS_REGION" \
-    --name /taskflow/database/name \
+    --name "${TASKFLOW_SSM_PARAMETER_PREFIX}/database/name" \
     --with-decryption \
     --query 'Parameter.Value' \
     --output text)"
 
 ACME_EMAIL="$(aws ssm get-parameter \
     --region "$AWS_REGION" \
-    --name /taskflow/caddy/acme-email \
+    --name "${TASKFLOW_SSM_PARAMETER_PREFIX}/caddy/acme-email" \
     --query 'Parameter.Value' \
     --output text)"
 
@@ -187,6 +199,8 @@ FRONTEND_IMAGE=${FRONTEND_IMAGE}
 DATABASE_URL=${DATABASE_URL}
 CORS_ALLOWED_ORIGINS=https://${TASKFLOW_APP_HOST}
 ACME_EMAIL=${ACME_EMAIL}
+TASKFLOW_APP_HOST=${TASKFLOW_APP_HOST}
+TASKFLOW_API_HOST=${TASKFLOW_API_HOST}
 EOF_ENV
 
 chmod 600 "$RUNTIME_ENV"
@@ -377,7 +391,7 @@ aws s3 cp \
     --region "$AWS_REGION" \
     --only-show-errors \
     "$STATE_FILE" \
-    "s3://${TASKFLOW_RELEASE_BUCKET}/release-state/${GIT_SHA}.json"
+    "s3://${TASKFLOW_RELEASE_BUCKET}/${RELEASE_STATE_PREFIX}/${GIT_SHA}.json"
 
 echo "Deployment complete: ${GIT_SHA}"
 

@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     environment:
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      TASKFLOW_APP_HOST: ${TASKFLOW_APP_HOST:?TASKFLOW_APP_HOST is required}
+      TASKFLOW_API_HOST: ${TASKFLOW_API_HOST:?TASKFLOW_API_HOST is required}
     ports:
       - "80:80"
       - "443:443"
