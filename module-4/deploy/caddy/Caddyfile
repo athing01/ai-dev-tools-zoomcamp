@@ -2,10 +2,10 @@
     email {$ACME_EMAIL}
 }
 
-app.zctaskflow.athing.cc {
+{$TASKFLOW_APP_HOST} {
     reverse_proxy frontend:3000
 }
 
-api.zctaskflow.athing.cc {
+{$TASKFLOW_API_HOST} {
     reverse_proxy backend:8000
 }

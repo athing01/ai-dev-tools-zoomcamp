@@ -12,9 +12,8 @@ RUN bun install --frozen ./
 # Copy source code
 COPY . ./
 
-# Build with VITE_API_BASE_URL as build arg
-ARG VITE_API_BASE_URL
-RUN VITE_API_BASE_URL=$VITE_API_BASE_URL bun run build
+# Build environment-neutral frontend artifact
+RUN bun run build
 
 # Runtime stage
 FROM oven/bun:1-alpine AS runtime

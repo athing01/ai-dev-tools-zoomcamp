@@ -1,0 +1,420 @@
+name: CI — Module 4
+
+on:
+  push:
+    paths:
+      - "module-4/**"
+      - ".github/workflows/ci-module-4.yml"
+  pull_request:
+    paths:
+      - "module-4/**"
+      - ".github/workflows/ci-module-4.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-4-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ap-southeast-1
+  AWS_ACCOUNT_ID: "060622563960"
+  BACKEND_ECR_REPOSITORY: taskflow/backend
+  FRONTEND_ECR_REPOSITORY: taskflow/frontend
+  RELEASE_BUCKET: taskflow-releaseartifactbucket-ah8yzqh3idur
+  M4_CI_ROLE_ARN: arn:aws:iam::060622563960:role/taskflow-m4-ci
+
+jobs:
+  backend-lint:
+    name: Backend lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-4/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+  backend-unit:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-4/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run unit tests
+        run: uv run pytest
+
+  frontend-lint:
+    name: Frontend lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-4/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+
+      - name: Install dependencies
+        run: bun install --frozen
+
+      - name: Run lint
+        run: >-
+          bunx eslint . --rule 'prettier/prettier: off'
+
+  frontend-unit:
+    name: Frontend unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: module-4/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+
+      - name: Install dependencies
+        run: bun install --frozen
+
+      - name: Run unit tests
+        run: bun run test
+
+  integration:
+    name: PostgreSQL integration and F2B tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: taskflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
+
+      - name: Install backend dependencies
+        working-directory: module-4/backend
+        run: uv sync --frozen --dev
+
+      - name: Install frontend dependencies
+        working-directory: module-4/frontend
+        run: bun install --frozen
+
+      - name: Run backend PostgreSQL integration tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+        working-directory: module-4/backend
+        run: uv run pytest ../tests/integration/ -v
+
+      - name: Start backend for F2B
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          CORS_ALLOWED_ORIGINS: http://localhost:3000
+        working-directory: module-4/backend
+        run: >-
+          uv run uvicorn taskflow_backend.app:create_app --factory
+          --host 0.0.0.0 --port 8000 &
+
+      - name: Wait for backend readiness
+        run: |
+          set -euo pipefail
+
+          for i in $(seq 1 30); do
+            if response=$(curl -fsS http://127.0.0.1:8000/api/tasks); then
+              if echo "$response" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d,list)' 2>/dev/null; then
+                echo "Backend ready"
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for backend (${i}/30)..."
+            sleep 1
+          done
+
+          echo "Backend not ready after 30s" >&2
+          exit 1
+
+      - name: Run F2B tests
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://postgres:test@127.0.0.1:5432/taskflow_test
+          VITE_API_BASE_URL: http://127.0.0.1:8000
+        working-directory: module-4/frontend
+        run: bun run test:f2b
+
+  release-image:
+    name: Build and publish immutable release images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - backend-lint
+      - backend-unit
+      - frontend-lint
+      - frontend-unit
+      - integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Validate release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${GITHUB_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid GITHUB_SHA: ${GITHUB_SHA}" >&2
+            exit 1
+          fi
+
+          CHECKED_OUT_SHA="$(git rev-parse HEAD)"
+          if [[ "${CHECKED_OUT_SHA}" != "${GITHUB_SHA}" ]]; then
+            echo "Checkout does not match GITHUB_SHA." >&2
+            echo "Expected: ${GITHUB_SHA}" >&2
+            echo "Actual:   ${CHECKED_OUT_SHA}" >&2
+            exit 1
+          fi
+
+          echo "Release SHA: ${GITHUB_SHA}"
+
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.M4_CI_ROLE_ARN }}
+          role-session-name: taskflow-m4-ci-${{ github.sha }}
+
+      - name: Verify ECR repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws ecr describe-repositories \
+            --region "${AWS_REGION}" \
+            --repository-names "${BACKEND_ECR_REPOSITORY}" "${FRONTEND_ECR_REPOSITORY}" \
+            >/dev/null
+
+      - name: Authenticate Docker to Amazon ECR
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login \
+                --username AWS \
+                --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Set release identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "IMAGE_TAG=sha-${GITHUB_SHA}" >> "${GITHUB_ENV}"
+          echo "BACKEND_IMAGE=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_ECR_REPOSITORY}:sha-${GITHUB_SHA}" >> "${GITHUB_ENV}"
+          echo "FRONTEND_IMAGE=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_ECR_REPOSITORY}:sha-${GITHUB_SHA}" >> "${GITHUB_ENV}"
+
+      - name: Check immutable release tags
+        id: ecr
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          check_tag() {
+            local repository="$1"
+            local output_name="$2"
+            local error_file
+            local exit_code
+            local digest
+
+            error_file="$(mktemp)"
+            set +e
+            digest="$(
+              aws ecr describe-images \
+                --region "${AWS_REGION}" \
+                --repository-name "${repository}" \
+                --image-ids "imageTag=${IMAGE_TAG}" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text 2>"${error_file}"
+            )"
+            exit_code=$?
+            set -e
+
+            if [[ "${exit_code}" -eq 0 ]]; then
+              if [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+                echo "${output_name}_exists=true" >> "${GITHUB_OUTPUT}"
+                echo "${output_name}_digest=${digest}" >> "${GITHUB_OUTPUT}"
+                echo "Existing immutable image: ${repository}:${IMAGE_TAG}"
+                rm -f "${error_file}"
+                return
+              fi
+              echo "Invalid digest returned for ${repository}:${IMAGE_TAG}: ${digest}" >&2
+              rm -f "${error_file}"
+              exit 1
+            fi
+
+            if grep -q 'ImageNotFoundException' "${error_file}"; then
+              echo "${output_name}_exists=false" >> "${GITHUB_OUTPUT}"
+              echo "Release tag not present: ${repository}:${IMAGE_TAG}"
+              rm -f "${error_file}"
+              return
+            fi
+
+            echo "Unable to determine whether immutable tag exists for ${repository}:${IMAGE_TAG}." >&2
+            cat "${error_file}" >&2
+            rm -f "${error_file}"
+            exit 1
+          }
+
+          check_tag "${BACKEND_ECR_REPOSITORY}" backend
+          check_tag "${FRONTEND_ECR_REPOSITORY}" frontend
+
+      - name: Configure Docker Buildx
+        if: steps.ecr.outputs.backend_exists == 'false' || steps.ecr.outputs.frontend_exists == 'false'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        if: steps.ecr.outputs.backend_exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: module-4/backend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.BACKEND_IMAGE }}
+
+      - name: Build and push frontend image
+        if: steps.ecr.outputs.frontend_exists == 'false'
+        uses: docker/build-push-action@v6
+        with:
+          context: module-4/frontend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE }}
+
+      - name: Resolve and validate immutable image digests
+        id: images
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolve_digest() {
+            local repository="$1"
+            local tag="$2"
+            local digest
+
+            digest="$(
+              aws ecr describe-images \
+                --region "${AWS_REGION}" \
+                --repository-name "${repository}" \
+                --image-ids "imageTag=${tag}" \
+                --query 'imageDetails[0].imageDigest' \
+                --output text
+            )"
+
+            if [[ ! "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "Invalid ECR digest for ${repository}:${tag}: ${digest}" >&2
+              exit 1
+            fi
+
+            printf '%s' "${digest}"
+          }
+
+          BACKEND_DIGEST="$(resolve_digest "${BACKEND_ECR_REPOSITORY}" "${IMAGE_TAG}")"
+          FRONTEND_DIGEST="$(resolve_digest "${FRONTEND_ECR_REPOSITORY}" "${IMAGE_TAG}")"
+
+          echo "backend_digest=${BACKEND_DIGEST}" >> "${GITHUB_OUTPUT}"
+          echo "frontend_digest=${FRONTEND_DIGEST}" >> "${GITHUB_OUTPUT}"
+
+          echo "Backend digest: ${BACKEND_DIGEST}"
+          echo "Frontend digest: ${FRONTEND_DIGEST}"
+
+      - name: Write release manifest
+        shell: bash
+        env:
+          BACKEND_DIGEST: ${{ steps.images.outputs.backend_digest }}
+          FRONTEND_DIGEST: ${{ steps.images.outputs.frontend_digest }}
+        run: |
+          set -euo pipefail
+
+          manifest="$(mktemp)"
+          trap 'rm -f "${manifest}"' EXIT
+
+          created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          jq -n \
+            --arg git_sha "${GITHUB_SHA}" \
+            --arg backend_image "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_ECR_REPOSITORY}" \
+            --arg backend_digest "${BACKEND_DIGEST}" \
+            --arg frontend_image "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${FRONTEND_ECR_REPOSITORY}" \
+            --arg frontend_digest "${FRONTEND_DIGEST}" \
+            --arg created_at "${created_at}" \
+            '{
+              git_sha: $git_sha,
+              artifact_tag: ("sha-" + $git_sha),
+              backend_image: $backend_image,
+              backend_digest: $backend_digest,
+              frontend_image: $frontend_image,
+              frontend_digest: $frontend_digest,
+              created_at: $created_at
+            }' > "${manifest}"
+
+          aws s3 cp "${manifest}" \
+            "s3://${RELEASE_BUCKET}/manifests/m4/${GITHUB_SHA}.json" \
+            --region "${AWS_REGION}" \
+            --content-type application/json
+
+          echo "Release manifest: s3://${RELEASE_BUCKET}/manifests/m4/${GITHUB_SHA}.json"

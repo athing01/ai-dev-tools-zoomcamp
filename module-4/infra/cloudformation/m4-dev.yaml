@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  TaskFlow Module 4 DEV runtime infrastructure. Reuses the existing TaskFlow VPC,
+  public subnet, private RDS instance, ECR repositories, S3 release-artifact bucket,
+  and SSM foundation without modifying the Module 3 production stack.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-009f5a68259a88714
+    Description: Existing TaskFlow VPC used by Module 3.
+
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-0eabd98f68b6e70ae
+    Description: Existing public subnet used by the TaskFlow application host.
+
+  RdsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-0f1063592cc1aca93
+    Description: Existing private RDS security group. M4 DEV gets a dedicated ingress rule.
+
+  ReleaseArtifactBucketName:
+    Type: String
+    Default: taskflow-releaseartifactbucket-ah8yzqh3idur
+    Description: Existing private S3 release-artifact bucket shared by M3 and M4.
+
+  Ec2AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Latest Amazon Linux 2023 x86_64 AMI parameter.
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.small
+    Description: Small x86_64 EC2 instance for the M4 DEV runtime.
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # M4 DEV EC2 security group
+  # ---------------------------------------------------------------------------
+
+  M4DevEc2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: taskflow-m4-dev-ec2-sg
+      GroupDescription: Public HTTP/HTTPS ingress for TaskFlow Module 4 DEV EC2.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP for Caddy and ACME HTTP challenge.
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS for Caddy.
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-dev-ec2-sg
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Environment
+          Value: dev
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  # ---------------------------------------------------------------------------
+  # Existing RDS SG: allow only M4 DEV EC2 -> PostgreSQL
+  # ---------------------------------------------------------------------------
+
+  M4DevRdsIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RdsSecurityGroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref M4DevEc2SecurityGroup
+      Description: PostgreSQL from TaskFlow M4 DEV EC2 only.
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Logs
+  # ---------------------------------------------------------------------------
+
+  M4DevSsmLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /taskflow/m4/dev/ssm
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Environment
+          Value: dev
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  # ---------------------------------------------------------------------------
+  # EC2 IAM
+  # ---------------------------------------------------------------------------
+
+  M4DevEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: taskflow-m4-dev-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+      Policies:
+        - PolicyName: taskflow-m4-dev-ec2-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: EcrPull
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/taskflow/backend
+                  - !Sub arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/taskflow/frontend
+
+              - Sid: EcrAuthorization
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: '*'
+
+              - Sid: RuntimeParameters
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/taskflow/m4/dev/*
+
+              - Sid: SsmParameterDecrypt
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub ssm.${AWS::Region}.amazonaws.com
+
+              - Sid: ArtifactRead
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${ReleaseArtifactBucketName}/deploy/m4/*
+                  - !Sub arn:${AWS::Partition}:s3:::${ReleaseArtifactBucketName}/manifests/m4/*
+
+              - Sid: ArtifactBucketMetadata
+                Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${ReleaseArtifactBucketName}
+
+              - Sid: ReleaseStateWrite
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource:
+                  - !Sub arn:${AWS::Partition}:s3:::${ReleaseArtifactBucketName}/release-state/m4/dev/*
+
+              - Sid: WriteSsmOutputToCloudWatch
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub
+                  - '${LogGroupArn}:log-stream:*'
+                  - LogGroupArn: !Select [0, !Split [':*', !GetAtt M4DevSsmLogGroup.Arn]]
+
+              - Sid: DescribeSsmLogStreams
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                Resource: !GetAtt M4DevSsmLogGroup.Arn
+
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-dev-ec2-role
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Environment
+          Value: dev
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  M4DevInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: taskflow-m4-dev-profile
+      Roles:
+        - !Ref M4DevEc2Role
+
+  # ---------------------------------------------------------------------------
+  # EC2 runtime
+  # ---------------------------------------------------------------------------
+
+  M4DevInstance:
+    Type: AWS::EC2::Instance
+    DependsOn:
+      - M4DevRdsIngress
+    Properties:
+      ImageId: !Ref Ec2AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref M4DevInstanceProfile
+      SubnetId: !Ref PublicSubnetId
+      SecurityGroupIds:
+        - !Ref M4DevEc2SecurityGroup
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -Eeuo pipefail
+
+          readonly DEPLOY_DIR="/opt/taskflow-m4-dev"
+          readonly COMPOSE_PLUGIN_DIR="/usr/local/lib/docker/cli-plugins"
+          readonly COMPOSE_PLUGIN_PATH="${COMPOSE_PLUGIN_DIR}/docker-compose"
+          readonly COMPOSE_VERSION="v5.5.0"
+
+          install -d -m 0755 "$DEPLOY_DIR" "$COMPOSE_PLUGIN_DIR"
+
+          dnf install -y docker curl-minimal tar
+          systemctl enable --now docker
+
+          compose_tmp="$(mktemp /tmp/taskflow-m4-dev-compose.XXXXXX)"
+          cleanup() {
+            rm -f "$compose_tmp"
+          }
+          trap cleanup EXIT
+
+          curl -fsSL \
+            "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o "$compose_tmp"
+          chmod 0755 "$compose_tmp"
+          install -m 0755 "$compose_tmp" "$COMPOSE_PLUGIN_PATH"
+
+          if systemctl list-unit-files amazon-ssm-agent.service >/dev/null 2>&1; then
+            systemctl enable amazon-ssm-agent
+            systemctl start amazon-ssm-agent
+          fi
+
+          cat > "$DEPLOY_DIR/bootstrap-info.txt" <<'EOF'
+          taskflow-m4-dev
+          runtime=/opt/taskflow-m4-dev
+          environment=dev
+          module=m4
+          EOF
+
+          chmod 0644 "$DEPLOY_DIR/bootstrap-info.txt"
+
+          docker --version
+          docker compose version
+
+          echo "TaskFlow M4 DEV bootstrap complete."
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-dev
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Environment
+          Value: dev
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  # ---------------------------------------------------------------------------
+  # Stable public IPv4 identity for Porkbun DNS
+  # ---------------------------------------------------------------------------
+
+  M4DevElasticIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-dev-eip
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Environment
+          Value: dev
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  M4DevElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref M4DevInstance
+      AllocationId: !GetAtt M4DevElasticIp.AllocationId
+
+Outputs:
+  VpcId:
+    Description: Existing VPC used by M4 DEV.
+    Value: !Ref VpcId
+
+  PublicSubnetId:
+    Description: Existing public subnet used by M4 DEV.
+    Value: !Ref PublicSubnetId
+
+  RdsSecurityGroupId:
+    Description: Existing RDS security group receiving the M4 DEV ingress rule.
+    Value: !Ref RdsSecurityGroupId
+
+  M4DevSecurityGroupId:
+    Description: M4 DEV EC2 security group ID.
+    Value: !Ref M4DevEc2SecurityGroup
+
+  M4DevInstanceId:
+    Description: M4 DEV EC2 instance ID.
+    Value: !Ref M4DevInstance
+
+  M4DevElasticIp:
+    Description: M4 DEV Elastic IP address for Porkbun DNS A records.
+    Value: !Ref M4DevElasticIp
+
+  M4DevRoleArn:
+    Description: M4 DEV EC2 IAM role ARN.
+    Value: !GetAtt M4DevEc2Role.Arn
+
+  M4DevProfileName:
+    Description: M4 DEV EC2 instance profile name.
+    Value: !Ref M4DevInstanceProfile
+
+  M4DevRuntimeDirectory:
+    Description: M4 DEV runtime directory on the EC2 instance.
+    Value: /opt/taskflow-m4-dev
+
+  M4DevSsmLogGroupName:
+    Description: CloudWatch Logs group for M4 DEV SSM/deployment output.
+    Value: !Ref M4DevSsmLogGroup
+
+  ReleaseArtifactBucketName:
+    Description: Existing shared release-artifact bucket.
+    Value: !Ref ReleaseArtifactBucketName

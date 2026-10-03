@@ -1,0 +1,6 @@
+node_modules
+.output
+.vite
+coverage
+.git
+.gitignore
