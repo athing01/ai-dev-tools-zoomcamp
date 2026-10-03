@@ -124,7 +124,7 @@ jobs:
             -C "${GITHUB_WORKSPACE}/module-4/deploy/compose" \
             docker-compose.ec2.yml
 
-          EXPECTED_FILES=$'Caddyfile\ndocker-compose.ec2.yml\ndeploy.sh'
+          EXPECTED_FILES=$'Caddyfile\ndeploy.sh\ndocker-compose.ec2.yml'
           ACTUAL_FILES="$(tar -tzf "${BUNDLE_FILE}" | sort)"
 
           if [[ "${ACTUAL_FILES}" != "${EXPECTED_FILES}" ]]; then
