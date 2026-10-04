@@ -1,0 +1,100 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: taskflow-p4-user-impact
+    folder: TaskFlow P4
+    interval: 20s
+    rules:
+      - uid: taskflow-p4-tasks-list-failure
+        title: TaskFlow /api/tasks user-impact failure
+        condition: C
+
+        data:
+          - refId: A
+            queryType: range
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: >-
+                sum by (deployment_environment_name, service_version) (
+                  count_over_time(
+                    {service_name="taskflow-backend"}
+                    |= "Task list failed"
+                    | operation="tasks.list"
+                    | outcome="error"
+                    | keep deployment_environment_name, service_version
+                    [1m]
+                  )
+                )
+              hide: false
+              intervalMs: 10000
+              maxDataPoints: 43200
+              queryType: range
+              refId: A
+
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 10000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              intervalMs: 10000
+              maxDataPoints: 43200
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              refId: C
+              type: threshold
+
+        dashboardUid: taskflow-p4-observability
+        panelId: 2
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+
+        annotations:
+          summary: "GET /api/tasks is failing for users"
+          description: >-
+            TaskFlow GET /api/tasks recorded one or more application failures
+            in the last minute. Environment={{ $labels.deployment_environment_name }},
+            release={{ $labels.service_version }}.
+          runbook_url: "http://127.0.0.1:3300/d/taskflow-p4-observability/taskflow-p4-e28094-get-api-tasks"
+
+        labels:
+          severity: critical
+          operation: tasks.list
+          user_impact: "true"
+
+        isPaused: false

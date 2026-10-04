@@ -8,6 +8,7 @@ from .api.tasks import router as tasks_router, get_repo
 from .api.errors import register_error_handlers
 from .repositories.sqlalchemy import SqlAlchemyTaskRepository
 
+from .observability import configure_observability
 
 def _build_repository() -> SqlAlchemyTaskRepository:
     """Construct the production SQLAlchemy repository from ``DATABASE_URL``.
@@ -52,6 +53,8 @@ def create_app(repo: TaskRepository | None = None) -> FastAPI:
         description="REST API for the TaskFlow personal Kanban board.",
         version="1.0.0",
     )
+
+    configure_observability(app)
 
     # If the caller supplies a repository, use it. Otherwise create the
     # production SQLAlchemy repository from ``DATABASE_URL``.
