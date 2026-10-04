@@ -1,0 +1,267 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >-
+  TaskFlow Module 4 observability host infrastructure.
+  Deploys a dedicated EC2 host for the OpenTelemetry Collector and
+  Grafana LGTM stack without modifying the M4 application runtime
+  or the existing Module 3 production infrastructure.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-009f5a68259a88714
+    Description: Existing TaskFlow VPC.
+
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-0eabd98f68b6e70ae
+    Description: Existing public subnet with Internet Gateway egress.
+
+  TelemetrySourceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-0d8278114847e23d4
+    Description: Security group allowed to send OTLP telemetry to the collector.
+
+  ProdTelemetrySourceSecurityGroupId:
+    Type: String
+    Default: ''
+    Description: Optional PROD application security group allowed to send OTLP telemetry.
+
+  Ec2AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Latest Amazon Linux 2023 x86_64 AMI.
+
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues:
+      - t3.small
+      - t3.medium
+    Description: Observability host instance size.
+
+  RootVolumeSizeGiB:
+    Type: Number
+    Default: 20
+    MinValue: 16
+    MaxValue: 100
+    Description: Encrypted gp3 root volume size in GiB.
+
+Conditions:
+  HasProdTelemetrySource:
+    Fn::Not:
+      - Fn::Equals:
+          - !Ref ProdTelemetrySourceSecurityGroupId
+          - ''
+
+Resources:
+  M4ObservabilitySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: taskflow-m4-observability-sg
+      GroupDescription: Private OTLP ingress for TaskFlow Module 4 observability.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Required for container image pulls, SSM, and outbound dependencies.
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-observability-sg
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Role
+          Value: observability
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  DevTelemetryIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref M4ObservabilitySecurityGroup
+      IpProtocol: tcp
+      FromPort: 4318
+      ToPort: 4318
+      SourceSecurityGroupId: !Ref TelemetrySourceSecurityGroupId
+      Description: OTLP HTTP from M4 DEV application.
+
+  ProdTelemetryIngress:
+    Condition: HasProdTelemetrySource
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref M4ObservabilitySecurityGroup
+      IpProtocol: tcp
+      FromPort: 4318
+      ToPort: 4318
+      SourceSecurityGroupId: !Ref ProdTelemetrySourceSecurityGroupId
+      Description: OTLP HTTP from M4 PROD application.
+
+  M4ObservabilityEc2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: taskflow-m4-observability-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-observability-role
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Role
+          Value: observability
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  M4ObservabilityInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: taskflow-m4-observability-profile
+      Roles:
+        - !Ref M4ObservabilityEc2Role
+
+  M4ObservabilityInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref Ec2AmiId
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref M4ObservabilityInstanceProfile
+
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref PublicSubnetId
+          GroupSet:
+            - !Ref M4ObservabilitySecurityGroup
+          AssociatePublicIpAddress: true
+
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref RootVolumeSizeGiB
+            Encrypted: true
+            DeleteOnTermination: true
+
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -Eeuo pipefail
+
+          readonly DEPLOY_DIR="/opt/taskflow-m4-observability"
+          readonly COMPOSE_PLUGIN_DIR="/usr/local/lib/docker/cli-plugins"
+          readonly COMPOSE_PLUGIN_PATH="${COMPOSE_PLUGIN_DIR}/docker-compose"
+          readonly COMPOSE_VERSION="v5.5.0"
+
+          install -d -m 0755 \
+            "$DEPLOY_DIR" \
+            "$COMPOSE_PLUGIN_DIR"
+
+          dnf install -y docker curl-minimal tar
+          systemctl enable --now docker
+
+          compose_tmp="$(mktemp /tmp/taskflow-m4-observability-compose.XXXXXX)"
+          cleanup() {
+            rm -f "$compose_tmp"
+          }
+          trap cleanup EXIT
+
+          curl -fsSL \
+            "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o "$compose_tmp"
+
+          chmod 0755 "$compose_tmp"
+          install -m 0755 "$compose_tmp" "$COMPOSE_PLUGIN_PATH"
+
+          if systemctl list-unit-files amazon-ssm-agent.service >/dev/null 2>&1; then
+            systemctl enable amazon-ssm-agent
+            systemctl start amazon-ssm-agent
+          fi
+
+          cat > "$DEPLOY_DIR/bootstrap-info.txt" <<'EOF'
+          taskflow-m4-observability
+          runtime=/opt/taskflow-m4-observability
+          module=m4
+          role=observability
+          telemetry_protocol=otlp-http
+          telemetry_port=4318
+          grafana_management=ssm-port-forwarding
+          EOF
+
+          chmod 0644 "$DEPLOY_DIR/bootstrap-info.txt"
+
+          docker --version
+          docker compose version
+
+          echo "TaskFlow M4 observability host bootstrap complete."
+
+      Tags:
+        - Key: Name
+          Value: taskflow-m4-observability
+        - Key: Project
+          Value: taskflow
+        - Key: Module
+          Value: m4
+        - Key: Role
+          Value: observability
+        - Key: TaskFlowM4
+          Value: 'true'
+
+  M4ObservabilityOtlpEndpointParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /taskflow/m4/dev/observability/otlp-endpoint
+      Type: String
+      Tier: Standard
+      Value: !Sub
+        - http://${PrivateIp}:4318
+        - PrivateIp: !GetAtt M4ObservabilityInstance.PrivateIp
+      Description: OTLP HTTP endpoint for the M4 DEV application.
+      Tags:
+        Project: taskflow
+        Module: m4
+        Role: observability
+        Environment: dev
+        TaskFlowM4: 'true'
+
+Outputs:
+  M4ObservabilityInstanceId:
+    Description: Observability EC2 instance ID.
+    Value: !Ref M4ObservabilityInstance
+
+  M4ObservabilityPrivateIp:
+    Description: Private IPv4 address used by application telemetry.
+    Value: !GetAtt M4ObservabilityInstance.PrivateIp
+
+  M4ObservabilityPublicIp:
+    Description: Public IPv4 address used for outbound Internet access and AWS SSM connectivity.
+    Value: !GetAtt M4ObservabilityInstance.PublicIp
+
+  M4ObservabilitySecurityGroupId:
+    Description: Observability security group ID.
+    Value: !Ref M4ObservabilitySecurityGroup
+
+  M4ObservabilityOtlpEndpointParameterName:
+    Description: SSM parameter containing the M4 DEV OTLP endpoint.
+    Value: !Ref M4ObservabilityOtlpEndpointParameter
+
+  M4ObservabilityOtlpEndpoint:
+    Description: OTLP HTTP endpoint for application runtime configuration.
+    Value: !Sub
+      - http://${PrivateIp}:4318
+      - PrivateIp: !GetAtt M4ObservabilityInstance.PrivateIp
+
+  M4ObservabilityRuntimeDirectory:
+    Description: Observability runtime directory on EC2.
+    Value: /opt/taskflow-m4-observability

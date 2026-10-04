@@ -32,6 +32,8 @@ readonly LOCK_DIR="${DEPLOY_DIR}/.deploy.lock"
 [[ "$RELEASE_STATE_PREFIX" =~ ^release-state/m4/(dev|prod)$ ]] \
     || fail "invalid M4 release-state prefix"
 
+readonly TASKFLOW_ENVIRONMENT="${TASKFLOW_SSM_PARAMETER_PREFIX##*/}"
+
 MANIFEST_FILE=""
 STATE_FILE=""
 DOCKER_LOGOUT_NEEDED=0
@@ -167,7 +169,21 @@ ACME_EMAIL="$(aws ssm get-parameter \
     --query 'Parameter.Value' \
     --output text)"
 
-for value_name in DB_USER DB_PASSWORD DB_NAME ACME_EMAIL; do
+if [[ "$TASKFLOW_ENVIRONMENT" == "dev" ]]; then
+    OTEL_EXPORTER_OTLP_ENDPOINT="$(aws ssm get-parameter \
+        --region "$AWS_REGION" \
+        --name "${TASKFLOW_SSM_PARAMETER_PREFIX}/observability/otlp-endpoint" \
+        --query 'Parameter.Value' \
+        --output text)"
+
+    [[ "$OTEL_EXPORTER_OTLP_ENDPOINT" != *$'\n'* && \
+       "$OTEL_EXPORTER_OTLP_ENDPOINT" != *$'\r'* ]] \
+        || fail "OTEL_EXPORTER_OTLP_ENDPOINT contains a newline"
+else
+    OTEL_EXPORTER_OTLP_ENDPOINT=""
+fi
+
+for value_name in DB_USER DB_PASSWORD DB_NAME ACME_EMAIL OTEL_EXPORTER_OTLP_ENDPOINT; do
     value="${!value_name}"
     [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] \
         || fail "${value_name} contains a newline"
@@ -201,11 +217,19 @@ CORS_ALLOWED_ORIGINS=https://${TASKFLOW_APP_HOST}
 ACME_EMAIL=${ACME_EMAIL}
 TASKFLOW_APP_HOST=${TASKFLOW_APP_HOST}
 TASKFLOW_API_HOST=${TASKFLOW_API_HOST}
+TASKFLOW_OBSERVABILITY_ENABLED=$([[ "$TASKFLOW_ENVIRONMENT" == "dev" ]] && echo true || echo false)
+TASKFLOW_ENVIRONMENT=${TASKFLOW_ENVIRONMENT}
+TASKFLOW_RELEASE_SHA=${GIT_SHA}
+OTEL_SERVICE_NAME=taskflow-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+OTEL_METRIC_EXPORT_INTERVAL=30000
+OTEL_BLRP_SCHEDULE_DELAY=10000
+TASKFLOW_P4_FAULT_MODE=off
 EOF_ENV
 
 chmod 600 "$RUNTIME_ENV"
 
-unset DB_USER DB_PASSWORD DB_NAME ACME_EMAIL DATABASE_URL
+unset DB_USER DB_PASSWORD DB_NAME ACME_EMAIL DATABASE_URL OTEL_EXPORTER_OTLP_ENDPOINT
 
 echo "Verifying RDS reachability..."
 

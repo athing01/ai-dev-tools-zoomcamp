@@ -22,6 +22,7 @@ services:
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
     ports:
+      - "${OTLP_HOST_BIND_ADDRESS:-127.0.0.1}:4318:4318"
       - "127.0.0.1:13133:13133"
     networks:
       - taskflow_observability
