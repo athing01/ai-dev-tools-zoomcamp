@@ -1,0 +1,35 @@
+services:
+  lgtm:
+    image: grafana/otel-lgtm@sha256:b966ea107831d526d9eb8fe4d2d86c9e5731392fad9dce8296bcf2072031f07c
+    container_name: taskflow-m4-otel-lgtm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3300:3000"
+    volumes:
+      - lgtm_data:/data
+      - ./alerts.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/taskflow-p4-alerts.yaml:ro
+    networks:
+      - taskflow_observability
+
+  collector:
+    image: otel/opentelemetry-collector@sha256:310a800ad69ee430e7c541796852a242c9c7db97aaad4daa5ccf843c525fbdb2
+    container_name: taskflow-m4-otel-collector
+    restart: unless-stopped
+    depends_on:
+      - lgtm
+    command:
+      - --config=/etc/otelcol/config.yaml
+    volumes:
+      - ./collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:13133:13133"
+    networks:
+      - taskflow_observability
+
+volumes:
+  lgtm_data:
+
+networks:
+  taskflow_observability:
+    external: true
+    name: taskflow-m4-observability
