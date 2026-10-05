@@ -8,6 +8,8 @@ services:
     volumes:
       - lgtm_data:/data
       - ./alerts.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/taskflow-p4-alerts.yaml:ro
+      - ./dashboard.json:/otel-lgtm/grafana/conf/provisioning/dashboards/taskflow-p4/dashboard.json:ro
+      - ./dashboards-provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/taskflow-p4.yaml:ro
     networks:
       - taskflow_observability
 
