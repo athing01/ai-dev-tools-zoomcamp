@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: TaskFlow P4 dashboards
+    orgId: 1
+    folder: TaskFlow P4
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/taskflow-p4
+      foldersFromFilesStructure: false
