@@ -274,57 +274,69 @@ Phase 4 is complete when one important operation is observable end to end and it
 - Selected dashboard implementation.
 - Exact dashboard layout, panels, variables, and time ranges.
 - Exact alert threshold, severity, routing, and notification method.
-- Selected operation and controlled Homework 4 failure scenario.
+- Exact controlled failure scenario used for TaskFlow observability validation.
 
-## 7. Phase 5 — Bounded Evidence, AI Responder, Authorization, and Recovery Verification
+## 7. Phase 5 — TaskFlow Incident Response
 
 ### Objective
 
-Implement the minimum incident-response flow:
+Implement the minimum incident-response flow for **TaskFlow**:
 
 > **Alert → bounded read-only evidence → structured AI assessment → external authorization → bounded action or escalation → independent recovery verification**
 
-### Scope
+### Scope correction
 
-The AI responder is a read-only system actor. It receives bounded evidence and produces structured output through a vendor-neutral adapter.
+Phase 5 is **TaskFlow-only**.
 
-The responder must not receive:
+The primary operational scenario is the real TaskFlow Phase 4 user-impact alert around:
 
-- General production credentials.
-- Arbitrary command execution.
-- Unrestricted production queries.
-- Authority granted by its own confidence or recommendation.
+```text
+GET /api/tasks
+operation = tasks.list
+environment = DEV
+controlled failure = Phase 4 approved fault mode
+```
+
+P5 must extend the already-proven P4 chain rather than introduce an order-tracker-derived incident into TaskFlow.
+
+Homework 4 is a separate graded workstream using `order-tracker` and is not a P5 TaskFlow dependency.
+
+This scenario is selected from TaskFlow P4 observability and is not derived from, nor required to reproduce, the `order-tracker` Homework 4 fault.
 
 ### Components
 
 | Component | Purpose |
 |---|---|
-| `module-4/incident-response/collect-evidence.sh` | Collects bounded, repeatable, read-only incident evidence |
-| `module-4/incident-response/responder-task.md` | Defines the responder task, evidence boundary, and expected behavior |
+| `module-4/incident-response/collect-evidence.sh` | Collects bounded, repeatable, read-only TaskFlow incident evidence |
+| `module-4/incident-response/responder-task.md` | Defines the headless responder task and evidence boundary |
 | `module-4/incident-response/response.schema.json` | Defines and validates structured responder output |
 | `module-4/incident-response/autonomy-policy.yaml` | Defines permitted bounded actions, authorization conditions, and escalation behavior |
-| `module-4/incident-response/incidents/` | Stores or references auditable incident records |
-| `module-4/incident-response/runbooks/rollback.sh` | Performs an approved rollback through a bounded procedure |
+| `module-4/incident-response/incidents/` | Stores or references auditable TaskFlow incident records |
+| `module-4/incident-response/runbooks/rollback.sh` | Performs an approved bounded rollback using a known prior artifact |
 | `module-4/incident-response/runbooks/verify-recovery.sh` | Independently verifies recovery or records escalation |
 
 ### 7.1 Bounded Evidence Collection
 
 #### Implementation Tasks
 
-1. Create `collect-evidence.sh`.
-2. Limit collection to predefined, read-only, allowlisted evidence sources and checks.
-3. Bound collection by the affected operation, environment, incident time window, and deployed release where available.
-4. Collect only evidence needed to investigate:
-   - Application behavior.
-   - Relevant metrics.
-   - Relevant traces.
-   - Relevant structured logs.
-   - Alert state.
-   - Environment and deployed release context.
-   - Health-check evidence required by Homework 4.
-5. Ensure the collector does not retrieve or output secrets, credentials, arbitrary files, unrestricted logs, or unrelated system data.
-6. Ensure the collector does not accept arbitrary command text or arbitrary query text.
-7. Ensure the collector can be rerun for the same incident condition.
+1. Create `collect-evidence.sh` as a read-only collector.
+2. Use only predefined, allowlisted evidence sources and checks.
+3. Bound collection by:
+   - affected TaskFlow operation
+   - environment
+   - incident time window
+   - deployed release where available
+4. Collect only evidence needed to investigate the TaskFlow incident, including as applicable:
+   - application behavior
+   - relevant metrics
+   - relevant traces
+   - relevant structured logs
+   - alert state
+   - environment and deployed release context
+   - health evidence only when independently required by the TaskFlow Product Specification or P5 verification
+5. Do not collect or expose secrets, credentials, arbitrary files, unrestricted logs, unrelated data, or arbitrary query/command text.
+6. Make collection repeatable for the same incident context.
+7. Produce a bounded evidence packet suitable for a headless responder.
 
 #### Verification
 
@@ -338,115 +350,140 @@ The responder must not receive:
 
 #### Implementation Tasks
 
-1. Create `responder-task.md`.
-2. Define the responder as a headless, read-only system actor.
-3. Require the responder to identify:
-   - Likely cause or contributing cause.
-   - Supporting evidence.
-   - Confidence or uncertainty.
-   - Proposed bounded action when appropriate.
-   - Escalation when it cannot determine a safe action.
-4. Create `response.schema.json`.
-5. Validate responder output against the schema before it enters authorization handling.
-6. Record the model, provider, adapter, and relevant configuration reference used for each response.
-7. Implement the responder through a vendor-neutral structured-output interface or adapter.
+1. Create `responder-task.md` for a headless, read-only responder.
+2. Feed the responder only the bounded evidence packet.
+3. Require structured output with at least:
+   - incident identifier
+   - evidence summary
+   - likely or contributing cause
+   - confidence or uncertainty
+   - proposed bounded action, where appropriate
+   - escalation decision
+   - rationale
+   - missing evidence
+4. Validate output against `response.schema.json` before authorization handling.
+5. Record model/provider/adapter/configuration references needed to reconstruct the response.
+6. Keep the responder interface vendor-neutral.
 
-#### Required Structured Output
+#### Safety Boundary
 
-The schema must support, at minimum:
+The model is a **proposal source**, not an authority source.
 
-| Field | Purpose |
-|---|---|
-| Incident identifier | Links the response to the incident trail |
-| Evidence summary | Identifies evidence reviewed |
-| Likely or contributing cause | States the evidence-based assessment |
-| Confidence or uncertainty | Makes limits visible |
-| Proposed bounded action | Provides a recommended action when appropriate |
-| Escalation decision | Indicates when a safe action cannot be determined |
-| Rationale | Explains the assessment |
-| Missing evidence | Identifies evidence gaps, if any |
+It must not receive:
+
+- general production credentials
+- arbitrary production shell access
+- unrestricted diagnostic queries
+- permission to execute free-form model output
 
 #### Verification
 
 - The responder receives only bounded evidence.
-- The responder produces output valid against `response.schema.json`.
+- The responder produces schema-valid output.
 - Invalid or incomplete output is rejected.
 - The responder cannot use arbitrary commands or unrestricted production access.
-- The model/provider/configuration reference is retained with the incident record.
+- Model/provider/configuration references are retained with the incident record.
 
 ### 7.3 External Authorization and Bounded Autonomy
 
 #### Implementation Tasks
 
 1. Create `autonomy-policy.yaml`.
-2. Define explicitly permitted bounded action types.
-3. Define the conditions under which each permitted action may proceed.
+2. Define the permitted bounded TaskFlow action types.
+3. Define preconditions for each permitted action.
 4. Define actions requiring human approval.
 5. Define actions that must be rejected or escalated.
-6. Ensure the authorization or policy evaluation occurs outside the model.
-7. Ensure free-form responder output is never directly executable.
+6. Keep authorization outside the model.
+7. Never convert free-form responder text directly into executable commands.
 8. Record:
-   - The proposed action.
-   - Authorization decision.
-   - Required approval, where applicable.
-   - Actual action taken.
-   - Escalation outcome, where applicable.
+   - proposed action
+   - authorization decision
+   - approval, when required
+   - actual action
+   - escalation outcome, when applicable
 
-The exact autonomy-level taxonomy and policy-engine technology remain implementation decisions.
+#### Bounded Action Rule
+
+A rollback may be used only as an explicitly authorized bounded operation using a previously known immutable release artifact. It must not rebuild source code.
+
+The exact action set and approval mechanism remain P5 implementation decisions, subject to the Product Specification and safety rules.
 
 #### Verification
 
 - A proposed non-permitted action is rejected or escalated.
 - Model confidence alone cannot execute an action.
-- Any actual action has a recorded external authorization decision.
+- Every actual action has a recorded external authorization decision.
 - The executor receives a bounded action request rather than unvalidated model text.
 
-### 7.4 Recovery Verification
+### 7.4 Independent Recovery Verification
 
 #### Implementation Tasks
 
 1. Create `runbooks/verify-recovery.sh`.
-2. Independently evaluate the original user-impacting condition after an authorized action.
-3. Record one of the following outcomes:
-   - Verified recovery.
-   - Unresolved failure.
-   - Inconclusive result requiring escalation.
-4. Do not treat an action attempt or responder conclusion as proof of recovery.
-5. Use relevant application behavior, metrics, dashboard state, alert state, and required health-check evidence.
+2. Re-check the original TaskFlow user-impacting condition independently after any authorized action.
+3. Record exactly one of:
+   - `verified`
+   - `unresolved`
+   - `inconclusive`
+4. Do not treat responder conclusion or action attempt as proof of recovery.
+5. Use relevant TaskFlow application behavior and, where useful, correlated metrics/logs/traces/alert state.
+6. Escalate unresolved or inconclusive results.
 
-`runbooks/rollback.sh` may be used only as a bounded, authorized rollback procedure. It must use a prior known release artifact rather than trigger a source rebuild.
+#### Recovery Rule
 
-#### Verification
-
-- Recovery verification evaluates the original affected operation or user-impact condition.
-- Recovery can be distinguished from unresolved or inconclusive outcomes.
-- Failed or inconclusive verification results in escalation.
-- Rollback, if used, is recorded as an authorized action and is followed by independent verification.
+```text
+Action attempted
+    !=
+Recovery verified
+```
 
 ### Incident Traceability
 
-Each material incident must be reconstructable through:
+Each material TaskFlow incident must be reconstructable through:
 
 ```text
 Incident
-→ deployed version
+→ deployed release
 → user impact
 → alert
-→ evidence
-→ model/configuration used
+→ bounded evidence
+→ model/configuration
 → proposed action
-→ authorization decision
-→ actual action taken
-→ recovery verification or escalation
-→ security finding/review where applicable
-→ human disposition
+→ authorization
+→ actual action
+→ recovery verification / escalation
 ```
 
-The storage technology and exact incident-record schema remain implementation decisions. The `incidents/` directory must preserve or reference the material necessary to reconstruct this trail.
+The exact incident-record storage format remains an implementation decision.
+
+### Phase 5 Verification
+
+The phase must demonstrate a real TaskFlow alert flowing through the complete bounded loop, with either:
+
+```text
+authorized bounded action → independently verified recovery
+```
+
+or:
+
+```text
+bounded assessment → external rejection/escalation → recorded escalation
+```
 
 ### Exit Gate
 
-Phase 5 is complete when a real alert can produce bounded evidence, structured read-only AI assessment, externally authorized bounded action or escalation, and independently verified recovery status.
+Phase 5 is complete when a real TaskFlow alert can produce bounded evidence, structured read-only AI assessment, an externally authorized bounded action or escalation, and an independently verified recovery status.
+
+### Explicit P5 Non-Goals
+
+Do not add order-tracker-specific behavior to TaskFlow, including:
+
+- `/api/orders`
+- order IDs such as `standard-1001` or `express-1002`
+- order-specific seeded data
+- order-specific date-calculation faults
+- homework-specific health-check behavior
+- any TaskFlow application change whose only justification is Homework 4
 
 ### Deferred Decisions
 
@@ -456,201 +493,409 @@ Phase 5 is complete when a real alert can produce bounded evidence, structured r
 - Incident-record format and storage implementation.
 - Exact recovery-verification queries and checks.
 
-## 8. Phase 6 — Security Audit, Homework Evidence, and Final Acceptance
+## 8. Phase 6 — Finalization with Two Controlled Workstreams
 
-### Objective
-
-Implement the minimum required security review and produce live running-system evidence for Homework 4 and final Module 4 acceptance.
-
-### Components
-
-| Component | Purpose |
-|---|---|
-| `module-4/security-audit/audit-brief.md` | Defines minimum audit scope, review process, and evidence expectations |
-| `module-4/security-audit/findings.schema.json` | Defines structured security findings and provenance fields |
-| `module-4/security-audit/capability-table.md` | Documents responder capabilities and credential boundaries |
-| `module-4/security-audit/runs/` | Stores or references audit-run evidence |
-| `module-4/docs/homework-4-evidence.md` | Records Homework 4 evidence generated by the running system |
-| `module-4/docs/operations-and-security-report.md` | Reconstructs incident and security-review trail |
-| `module-4/docs/acceptance-traceability-matrix.md` | Maps Product Specification requirements to implementation and evidence |
-
-### 8.1 Security Audit
-
-#### Implementation Tasks
-
-1. Create `audit-brief.md`.
-2. Define the limited audit scope for:
-   - Application and Module 4 operational code.
-   - Evidence collection controls.
-   - Responder task and adapter boundary.
-   - Autonomy policy and bounded action handling.
-   - Responder capabilities, tools, and credential boundaries.
-3. Configure recurring Semgrep scanning through the permitted Module 4 workflow implementation.
-4. Run Snyk Agent Scan for the responder attack surface.
-5. Conduct model-assisted review of relevant findings and configuration.
-6. Require human validation and disposition of security findings.
-7. Create `findings.schema.json`.
-8. Ensure each finding includes:
-   - Finding identifier.
-   - Origin, such as Semgrep, Snyk Agent Scan, model-assisted review, or human review.
-   - Relevant code, configuration, release, or responder reference.
-   - Supporting evidence.
-   - Review status.
-   - Human disposition.
-   - Remediation status where applicable.
-9. Create `capability-table.md`.
-10. Document:
-   - Read-only evidence available to the responder.
-   - Prohibited systems, data, and credentials.
-   - Available tools and their restrictions.
-   - Confirmation that arbitrary command execution is unavailable.
-   - Credential boundaries.
-   - Authorization boundary.
-   - Model/provider/configuration reference approach.
-
-Raw scanner or model output must not be treated as confirmed without human validation.
-
-### 8.2 Homework 4 Evidence Run
-
-#### Implementation Tasks
-
-1. Use the approved controlled failure scenario in the selected safe environment.
-2. Generate evidence from the running system. Do not hard-code outcomes or answers.
-3. Record evidence sufficient to determine:
-   - Health-check behavior.
-   - Relevant metric HTTP status.
-   - Grafana-observed HTTP status.
-   - Relevant alert state.
-   - AI responder structured response.
-   - Underlying application problem, or why escalation was required.
-4. Store or reference the resulting evidence in `homework-4-evidence.md`.
-5. Keep M3 readiness behavior separate from the Homework 4 health-check requirement unless the authoritative course source explicitly establishes their relationship.
-
-### 8.3 Final Documentation and Acceptance
-
-#### Implementation Tasks
-
-1. Complete `operations-and-security-report.md`.
-2. Reconstruct at least one material incident through:
+Phase 6 remains **one top-level phase**. It contains two explicitly separated sub-plans:
 
 ```text
-Incident
-→ deployed version
-→ user impact
-→ alert
-→ evidence
-→ model/configuration used
-→ proposed action
-→ authorization decision
-→ actual action taken
-→ recovery verification or escalation
-→ security finding/review where applicable
-→ human disposition
+P6-A  TaskFlow security audit + final acceptance
+P6-B  Homework 4 / order-tracker execution
 ```
 
-3. Complete `acceptance-traceability-matrix.md`.
-4. Map every Product Specification acceptance requirement to:
-   - Implementation component.
-   - Validation method.
-   - Evidence location.
-   - Result or documented limitation.
+This preserves the existing Phase 6 structure without creating an additional top-level phase.
 
-### Verification
+### 8.1 P6-A — TaskFlow Security Audit and Final Acceptance
 
-- Semgrep evidence exists.
-- Snyk Agent Scan evidence exists for the responder attack surface.
-- Model-assisted review is recorded.
-- Human validation and disposition are recorded.
-- Responder capabilities and credential boundaries are documented.
-- Security findings retain provenance.
-- Homework 4 evidence is generated by the running system.
-- The full incident trail is auditable.
-- The acceptance traceability matrix covers all Product Specification acceptance requirements.
+#### Objective
 
-### Exit Gate
+Complete the TaskFlow Module 4 security review, operational documentation, incident/audit traceability, and final acceptance evidence.
 
-Phase 6 is complete when security-review evidence, Homework 4 evidence, and the end-to-end incident trail are available and traceable.
+#### Security Audit Tasks
 
-### Deferred Decisions
+1. Complete `module-4/security-audit/audit-brief.md`.
+2. Define the limited audit scope for:
+   - TaskFlow application and Module 4 operational code
+   - evidence collection controls
+   - responder task and adapter boundary
+   - autonomy policy and bounded action handling
+   - responder capabilities, tools, and credential boundaries
+3. Configure or run the required Semgrep scanning through the permitted Module 4 workflow implementation.
+4. Run Snyk Agent Scan for the responder attack surface.
+5. Conduct model-assisted review of relevant findings/configuration.
+6. Require human validation and disposition of findings.
+7. Complete `findings.schema.json` and retain provenance for each finding.
+8. Complete `capability-table.md` covering:
+   - read-only evidence available to responder
+   - prohibited systems/data/credentials
+   - available tools and restrictions
+   - arbitrary command execution unavailable
+   - credential boundaries
+   - authorization boundary
+   - model/provider/configuration reference approach
 
-- Exact recurrence schedule or invocation timing for security review.
-- Exact reviewer assignment and finding-disposition workflow.
-- Controlled failure implementation details.
-- Storage mechanism for audit-run artifacts.
+Raw scanner or model output is not a confirmed finding until human validation/disposition is recorded.
+
+#### Final TaskFlow Documentation
+
+Complete:
+
+```text
+module-4/security-audit/
+├── audit-brief.md
+├── findings.schema.json
+├── capability-table.md
+└── runs/
+
+module-4/docs/
+├── operations-and-security-report.md
+├── homework-4-evidence.md
+└── acceptance-traceability-matrix.md
+```
+
+`homework-4-evidence.md` is an evidence index for the separately executed Homework 4 workstream. It must not imply that order-tracker is part of the TaskFlow runtime architecture. The file must begin with this exact boundary statement:
+
+> **Evidence Index Only — Authoritative Homework 4 Evidence Resides in the Order-Tracker Fork.**
+
+The index must reference, rather than duplicate, authoritative homework evidence.
+
+#### Final TaskFlow Verification
+
+Confirm:
+
+- P3 release behavior remains correct.
+- P4 observability remains correct.
+- P4 alert remains actionable.
+- P5 incident response is bounded, authorized, and auditable.
+- M3 protected workflows remain unchanged.
+- Security findings have human disposition.
+- The material TaskFlow incident and security-review trail is reconstructable.
+
+#### P6-A / P6-B Independence Rule
+
+P6-A TaskFlow acceptance and P6-B Homework submission are independently evidenced; neither workstream changes or validates the other system's runtime behavior.
+
+#### P6-A Exit Gate
+
+P6-A is complete when TaskFlow security-review evidence, operational documentation, acceptance traceability, and the material incident/audit trail are complete and evidence-backed.
+
+### 8.2 P6-B — Homework 4 / Order-Tracker Execution Sub-Plan
+
+#### Objective
+
+Complete the separately graded Homework 4 exercise against the official `order-tracker` starter/fork and generate the live evidence required for the homework submission.
+
+#### Repository Boundary
+
+Homework 4 uses its own application repository:
+
+```text
+alexeygrigorev/order-tracker
+        ↓
+student homework fork / repository
+```
+
+This repository is independent from the TaskFlow Module 4 project repository.
+
+#### Homework Repository Provenance
+
+The P6-B record must identify the exact repository lineage used for the graded homework. At minimum, record:
+
+- **Upstream repository:** the official `alexeygrigorev/order-tracker` repository.
+- **Homework fork/repository:** the student's fork/repository used for the submission.
+- **Branch and/or commit SHA:** the exact revision from which the homework evidence was produced.
+- **Evidence ownership:** authoritative Homework 4 runtime output, incident records, dashboard/telemetry observations, responder output, fix/recovery evidence, and submission answers belong to the homework fork/repository.
+
+The provenance record must make it possible to trace each submitted answer back to the exact homework repository revision that generated the evidence.
+
+#### H4-0 — Homework Repository Preflight
+
+Tasks:
+
+- Verify the homework repository and branch state.
+- Read the official Homework 4 requirements and submission questions.
+- Confirm local/runtime prerequisites.
+- Identify the baseline endpoints and seeded data required by the homework.
+- Keep homework changes inside the homework repository unless the official requirement explicitly requires otherwise.
+
+Exit evidence: a reproducible baseline with the exact homework repository and requirements identified.
+
+#### H4-1 — Run the App
+
+Tasks:
+
+- Start the homework application using the prescribed workflow.
+- Verify the homework health-check behavior from the running application.
+- Capture raw command output as evidence.
+
+Exit evidence: a running application and observed health-check evidence sufficient for the homework question.
+
+#### H4-2 — Instrument One Endpoint
+
+Tasks:
+
+- Select the endpoint required by the official homework question.
+- Add the minimum telemetry needed by the homework.
+- Verify the actual HTTP status and route attributes from runtime evidence.
+- Do not hard-code expected answer values.
+
+Exit evidence: runtime telemetry proving the selected endpoint's observed status/route behavior.
+
+#### H4-3 — Build the Telemetry Pipeline
+
+Tasks:
+
+- Configure the telemetry pipeline required by Homework 4.
+- Ensure the course-approved dashboard/telemetry stack exposes the required evidence.
+- Correlate request, log, and trace evidence where required.
+
+Exit evidence: dashboard plus matching metrics/logs/traces sufficient to answer the homework telemetry question from live evidence.
+
+#### H4-4 — Configure the Alert
+
+Tasks:
+
+- Implement the alert condition required by Homework 4.
+- Verify the alert behavior for the required failure/non-failure cases.
+- Capture the actual rule/alert state from the running homework system.
+
+Exit evidence: observed alert state, not an answer inferred from source code.
+
+#### H4-5 — Build / Exercise the Automatic Responder
+
+Tasks:
+
+- Configure the homework responder path required by the official assignment.
+- Exercise the responder against the designated test condition.
+- Preserve the structured responder output and incident record.
+- Verify that the responder capability/authorization boundaries meet the homework requirements and explicit safety constraints.
+
+Exit evidence: retained incident record containing the responder assessment and outcome.
+
+#### H4-6 — Controlled Incident and Agent Fix
+
+Tasks:
+
+- Trigger or reproduce the designated Homework 4 application failure.
+- Confirm the alert fired.
+- Collect the evidence required to diagnose the incident.
+- Run the homework-required agent/fix workflow in its permitted sandbox or bounded environment.
+- Validate the change with the required tests and replay/rebuild checks.
+- Keep go/no-go decisions under code-enforced gates and explicit assignment constraints rather than model free-form authority.
+
+Exit evidence:
+
+```text
+failure
+→ alert
+→ evidence
+→ diagnosis
+→ bounded agent/fix activity
+→ validation
+→ recovery result
+```
+
+#### H4-7 — Recovery and Evidence Capture
+
+Tasks:
+
+- Independently verify that the original homework failure condition is resolved.
+- Preserve the incident record, commit reference, and runtime verification.
+- Capture the exact observed outputs needed for submission.
+
+Exit evidence: reproducible evidence package from the running homework system.
+
+#### H4-8 — Submission Evidence Mapping
+
+Map evidence to every Homework 4 question, distinguishing:
+
+- raw command output
+- runtime metrics
+- dashboard observations
+- Loki/Tempo or equivalent correlation
+- alert state
+- responder result
+- incident diagnosis
+- fix/recovery evidence
+- commit or incident-record references
+
+Do not write answers into application behavior or alter telemetry solely to force expected values.
+
+#### P6-B Exit Gate
+
+Homework 4 is complete when every submission answer is supported by observed evidence or a retained incident record in the **order-tracker homework repository**, the exact upstream/fork/branch-or-commit provenance is recorded, and the submission can be reconstructed independently from those records.
+
+`module-4/docs/homework-4-evidence.md` in the TaskFlow repository is **reference/index-only**. It may record repository path, incident ID, commit SHA, timestamps, and links/references, but it is not an authoritative copy of Homework 4 evidence.
 
 ## 9. Acceptance Traceability Matrix
 
-| Product requirement | Phase | Primary implementation artifact | Required evidence |
-|---|---:|---|---|
-| DEV receives qualifying changes automatically | 3 | `deploy-module-4.yml` | DEV deployment record |
-| PROD promotion is manual | 3 | `promote-module-4.yml` | Manual promotion record |
-| PROD reuses already-built artifact | 3 | Release record and promotion logic | Matching DEV/PROD artifact identity |
-| M3 workflows remain protected | 3–6 | M4-only workflow additions | No changes to `ci.yml` and `deploy.yml` |
-| One important operation has metrics, traces, and structured logs | 4 | Instrumentation and `collector.yaml` | Correlated signal evidence |
-| Environment and release are distinguishable | 3–4 | Release record, telemetry, dashboard | DEV/PROD and release evidence |
-| Telemetry does not expose secrets or credentials | 4 | Instrumentation and collector review | Sanitized telemetry review |
-| Dashboard shows health or user-impacting behavior | 4 | `dashboard.json` | Dashboard evidence |
-| Real user-impact alert exists | 4 | `alerts.yaml` | Alert state for controlled application failure |
-| Evidence collection is read-only, bounded, allowlisted, and repeatable | 5 | `collect-evidence.sh` | Evidence packet and collector review |
-| AI responder is read-only and structured | 5 | `responder-task.md`, `response.schema.json` | Validated responder result |
-| Authorization is external to model confidence | 5 | `autonomy-policy.yaml` | Rejected or escalated unauthorized-action case |
-| Recovery is independently verified or escalated | 5 | `verify-recovery.sh` | Verification or escalation record |
-| Semgrep scanning occurs | 6 | Security audit evidence in `runs/` | Semgrep result |
-| Model-assisted security review occurs | 6 | Security finding/review record | Model-review evidence |
-| Human validation and disposition occur | 6 | Findings record | Human disposition |
-| Snyk Agent Scan covers responder attack surface | 6 | Security audit evidence in `runs/` | Snyk Agent Scan result |
-| Capability and credential boundary is reviewed | 6 | `capability-table.md` | Boundary review |
-| Incident trail is auditable | 5–6 | Incident record and final report | Linked lifecycle record |
-| Homework 4 answers derive from real evidence | 6 | `homework-4-evidence.md` | Health, metrics, Grafana, alert, responder, and diagnosis evidence |
+| Requirement / evidence | Owner | Phase | Primary evidence |
+|---|---|---:|---|
+| DEV receives qualifying changes automatically | TaskFlow | P3 | DEV deployment record |
+| PROD promotion is manual | TaskFlow | P3 | Manual promotion record |
+| PROD reuses already-built artifact | TaskFlow | P3 | Matching immutable artifact identity |
+| M3 workflows remain protected | TaskFlow | P3–P6 | No unintended changes to `ci.yml` / `deploy.yml` |
+| One important operation has metrics, traces, and structured logs | TaskFlow | P4 | Correlated telemetry evidence |
+| Environment and release are distinguishable | TaskFlow | P3–P4 | Release + telemetry evidence |
+| Telemetry does not expose secrets or credentials | TaskFlow | P4–P6 | Telemetry/security review |
+| Dashboard shows health or user-impacting behavior | TaskFlow | P4 | Dashboard evidence |
+| Real user-impact alert exists | TaskFlow | P4 | Alert evidence |
+| Evidence collection is read-only, bounded, allowlisted, repeatable | TaskFlow | P5 | Evidence packet + collector review |
+| AI responder is read-only and structured | TaskFlow | P5 | Schema-valid responder result |
+| Authorization is external to model confidence | TaskFlow | P5 | External authorization decision |
+| Recovery is independently verified or escalated | TaskFlow | P5 | Verification/escalation record |
+| Semgrep scanning | TaskFlow | P6-A | Security audit run |
+| Model-assisted security review | TaskFlow | P6-A | Security review record |
+| Human validation and disposition | TaskFlow | P6-A | Findings disposition |
+| Snyk Agent Scan covers responder attack surface | TaskFlow | P6-A | Snyk Agent Scan evidence |
+| Capability and credential boundary reviewed | TaskFlow | P6-A | `capability-table.md` |
+| Material TaskFlow incident trail auditable | TaskFlow | P5–P6-A | Incident record + final report |
+| Homework health-check evidence | order-tracker | P6-B | Homework runtime evidence |
+| Homework endpoint metric HTTP status | order-tracker | P6-B | Runtime metric evidence |
+| Homework dashboard/telemetry evidence | order-tracker | P6-B | Dashboard + telemetry evidence |
+| Homework alert state | order-tracker | P6-B | Live alert/rule state |
+| Homework responder evidence | order-tracker | P6-B | Incident/responder record |
+| Homework diagnosis/fix/recovery evidence | order-tracker | P6-B | Incident record + runtime verification |
+| Homework submission answers | order-tracker evidence | P6-B | Evidence-to-question mapping |
+| TaskFlow `homework-4-evidence.md` ownership boundary | TaskFlow index + order-tracker authoritative evidence | P6-A/P6-B | Reference-only index with provenance links |
+
+### Ownership Rule
+
+A Homework 4 evidence row does **not** mean that TaskFlow must implement the corresponding order-tracker feature.
 
 ## 10. Final Completion Checklist
 
-### Release Behavior
+### TaskFlow Release / Deployment
 
-- [ ] DEV receives qualifying changes automatically.
-- [ ] PROD remains user-facing and requires manual promotion.
-- [ ] PROD promotion reuses the already-built artifact.
-- [ ] DEV and PROD can be correlated to the deployed release identity.
+- [ ] P3 DEV and PROD release behavior remains correct.
+- [ ] PROD promotion reuses the same immutable artifact.
+- [ ] Release identity remains traceable.
 - [ ] Existing M3 workflows remain unchanged.
 
-### Observability and Alerting
+### TaskFlow Observability / Alerting
 
-- [ ] At least one important backend endpoint or user-relevant operation has metrics, traces, and structured logs.
-- [ ] Telemetry supports distinction of application/service, environment, and release.
-- [ ] Dashboard evidence distinguishes DEV and PROD.
-- [ ] Dashboard evidence shows health or user-impacting behavior.
-- [ ] At least one alert represents a real user-impacting application failure.
-- [ ] Telemetry, dashboard data, and evidence packets do not expose secrets or credentials.
+- [ ] P4 end-to-end observability remains functional.
+- [ ] Metrics, traces, and structured logs correlate for `tasks.list`.
+- [ ] Dashboard identifies environment and release.
+- [ ] The real P4 user-impact alert remains actionable.
+- [ ] Telemetry remains free of secret material.
 
-### Incident Response
+### TaskFlow Incident Response
 
 - [ ] Evidence collection is read-only, allowlisted, bounded, and repeatable.
-- [ ] The responder receives only bounded evidence.
-- [ ] The responder produces schema-valid structured output.
-- [ ] The responder identifies likely cause, confidence, bounded action, or escalation.
-- [ ] The responder cannot use arbitrary commands or general production credentials.
-- [ ] `autonomy-policy.yaml` defines permitted bounded actions and escalation handling.
+- [ ] Evidence is limited to the affected TaskFlow operation and incident context.
+- [ ] Responder receives only bounded evidence.
+- [ ] Responder output is schema-valid.
+- [ ] Model/provider/configuration provenance is recorded.
 - [ ] Authorization is external to model confidence.
 - [ ] Unauthorized actions are rejected or escalated.
-- [ ] Recovery verification is independent of the responder’s conclusion.
-- [ ] Unverified recovery results in escalation.
-
-### Security and Auditability
-
-- [ ] Semgrep scanning is implemented.
-- [ ] Model-assisted review is recorded.
-- [ ] Human validation and disposition are recorded.
-- [ ] Snyk Agent Scan evidence exists for the responder attack surface.
-- [ ] Responder capability and credential boundaries are documented.
-- [ ] Security findings retain provenance.
+- [ ] Any action is bounded and explicitly authorized.
+- [ ] Recovery verification is independent.
+- [ ] Unverified recovery produces escalation.
 - [ ] Incident traceability is reconstructable.
 
-### Homework 4
+### TaskFlow Security / Audit
 
-- [ ] Running-system evidence determines health-check behavior.
-- [ ] Running-system evidence determines relevant metric HTTP status.
-- [ ] Running-system evidence determines Grafana-observed HTTP status.
-- [ ] Running-system evidence determines alert state.
-- [ ] Running-system evidence retains the structured responder response.
-- [ ] Running-system evidence supports the underlying-problem diagnosis or documented escalation.
-- [ ] Homework answers are not hard-coded.
+- [ ] Semgrep evidence exists.
+- [ ] Snyk Agent Scan evidence exists for the responder attack surface.
+- [ ] Model-assisted review is recorded.
+- [ ] Human validation/disposition is recorded.
+- [ ] Capability and credential boundaries are documented.
+- [ ] Security findings retain provenance.
+- [ ] Final operations/security report is complete.
+- [ ] Acceptance traceability matrix is complete.
+
+### Homework 4 / Order-Tracker
+
+- [ ] Homework repository is separate from TaskFlow project repository.
+- [ ] Health-check answer is supported by runtime evidence.
+- [ ] Endpoint metric HTTP status is supported by runtime telemetry.
+- [ ] Dashboard/Loki/Tempo evidence is retained where required.
+- [ ] Alert state is observed from the running system.
+- [ ] Responder output is retained in an incident record.
+- [ ] The underlying application problem is supported by evidence.
+- [ ] Agent/fix validation and recovery are evidenced.
+- [ ] Every submission question maps to evidence.
+- [ ] No homework answer is hard-coded.
+
+## Scope Revision Summary
+
+This revision makes a **scope correction, not an architecture redesign**.
+
+- **P0–P4 remain completed/frozen.** No completed Phase 3 or Phase 4 behavior is reopened.
+- **P5 is explicitly TaskFlow-only.** The existing P4 `tasks.list` alert/failure path becomes the primary incident-response scenario.
+- **Homework 4 is separated from TaskFlow.** The graded homework is executed against the independent `order-tracker` starter/fork.
+- **Phase 6 remains one top-level phase.** It now contains P6-A for TaskFlow finalization and P6-B for Homework 4 execution.
+- **Homework evidence ownership is corrected.** Authoritative Homework 4 evidence belongs to the order-tracker workstream; the TaskFlow repository may retain only a reference/index.
+- **Homework provenance is explicit.** P6-B records the upstream repository, homework fork/repository, branch and/or commit SHA, and the authoritative evidence location.
+- **Required artifact names remain unchanged.** `collect-evidence.sh`, `response.schema.json`, `autonomy-policy.yaml`, `rollback.sh`, `verify-recovery.sh`, security-audit artifacts, and required workflow names are preserved.
+- **M3 remains protected.** No M3 production workflow or production baseline change is implied by this revision.
+- **No homework-driven TaskFlow features are permitted.** Order-specific endpoints, seeded data, faults, or health behavior must not be added to TaskFlow solely to satisfy Homework 4.
+- **Product Specification remains frozen by default.** Any direct contradiction discovered in the Product Specification must be resolved explicitly through the authority order; it must not be silently rewritten to fit implementation.
+
+## Revision Decision Register
+
+### DEC-REV-01 — Application Boundary
+
+**Decision:** TaskFlow is the Module 4 project target; `order-tracker` is the Homework 4 target.
+
+**Reason:** The homework is a separately graded exercise against the order-tracker starter/fork and must not redefine TaskFlow requirements.
+
+### DEC-REV-02 — P5 Incident Target
+
+**Decision:** P5 uses the existing TaskFlow P4 `tasks.list` alert/failure path.
+
+**Reason:** It is already implemented and observable, so P5 should extend a proven signal rather than import a different application's incident domain.
+
+### DEC-REV-03 — Phase 6 Structure
+
+**Decision:** Keep Phase 6 as one top-level phase and add P6-A and P6-B sub-plans.
+
+**Reason:** Preserves the established phase structure while restoring correct ownership.
+
+### DEC-REV-04 — Product Specification
+
+**Decision:** Do not rewrite `module-4/docs/product-spec.md` solely to accommodate Homework 4.
+
+**Reason:** The Product Specification remains the highest-priority project contract. Scope is corrected at implementation-plan/evidence ownership level first.
+
+### DEC-REV-05 — No Homework-Driven TaskFlow Features
+
+**Decision:** Do not add order-tracker endpoints, seeded data, order-specific faults, or homework-only health behavior to TaskFlow.
+
+### DEC-REV-06 — Independent Evidence
+
+**Decision:** TaskFlow P5 evidence and Homework 4 evidence must be independently reproducible from their respective running systems / incident records.
+
+### DEC-REV-07 — Homework Evidence Provenance
+
+**Decision:** P6-B must record upstream repository, homework fork/repository, branch and/or commit SHA, with authoritative Homework evidence retained in the homework fork/repository.
+
+### DEC-REV-08 — Homework Evidence Index
+
+**Decision:** `module-4/docs/homework-4-evidence.md` is reference/index-only and must carry the explicit authoritative-evidence boundary header.
+
+### DEC-REV-09 — P5 Recovery Environment
+
+**Decision:** All P5 recovery actions and recovery verification are executed against
+M4 DEV only. M4 PROD is explicitly out of scope for P5 incident-response
+action execution.
+
+**Reason:** P5 needs to demonstrate the bounded authorization and independent
+recovery-verification loop without introducing production risk.
+Production remains untouched during P5 validation.
+
+## Revision Acceptance Gate
+
+Before creating the P5 branch:
+
+- [ ] P0–P4 are still treated as completed.
+- [ ] P5 is explicitly TaskFlow-only.
+- [ ] The primary P5 incident is the existing `tasks.list` alert/failure.
+- [ ] Homework 4 is explicitly separated from TaskFlow implementation.
+- [ ] Phase 6 remains the only remaining top-level phase.
+- [ ] P6-A and P6-B ownership is explicit.
+- [ ] The acceptance matrix assigns homework evidence to order-tracker.
+- [ ] P6-B records upstream, fork/repository, and branch/commit provenance.
+- [ ] TaskFlow `homework-4-evidence.md` is explicitly reference/index-only.
+- [ ] Product Specification has not been silently rewritten.
+- [ ] No new TaskFlow feature is justified solely by Homework 4.
