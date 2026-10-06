@@ -1,0 +1,71 @@
+{
+  "record_version": "1",
+  "incident_id": "p5-taskflow-final-20261006-053711",
+  "scenario": {
+    "operation": "tasks.list",
+    "environment": "dev",
+    "alert_uid": "taskflow-p4-tasks-list-failure",
+    "release_sha": "cfc5189ffe74e63510b5f041bf38e9b933c5ea9a"
+  },
+  "response_path": "escalation_without_execution",
+  "artifacts": {
+    "evidence": {
+      "path": "incidents/p5-taskflow-final-20261006-053711/evidence.json",
+      "sha256": "f666e3ffb73f4d12d8ed6afcb406b318f7103401f356b5e061917b8eea65c32e"
+    },
+    "responder_response": {
+      "path": "incidents/p5-taskflow-final-20261006-053711/responder-response-ai.json",
+      "sha256": "dd478ae5ca578818b2f5659ea68b239b593bfb782304baf29560b9a31d7a12fd"
+    },
+    "authorization_decision": {
+      "path": "incidents/p5-taskflow-final-20261006-053711/authorization-decision.json",
+      "sha256": "96652866682c7bb835dbce4f4e7c4205b50e9fdb905941f79730b816b49a9fab"
+    },
+    "recovery_verification": {
+      "path": "incidents/p5-taskflow-final-20261006-053711/recovery-verification.json",
+      "sha256": "3690ad2146b2597e3a26d7848fe3daa02cc03e33e674e4c9eba1c651bf46bd03"
+    }
+  },
+  "responder": {
+    "model": "gpt-oss:20b",
+    "provider": "litellm",
+    "adapter": "openai-compatible-v1",
+    "configuration_ref": "local-litellm-gpt-oss:20b"
+  },
+  "assessment": {
+    "confidence": {
+      "level": "medium",
+      "uncertainty": "Evidence confirms a controlled fault but does not provide the explicit TASKFLOW_P4_FAULT_MODE=list_fail signal required to justify the recover_task_list_dev_fault action."
+    },
+    "likely_cause": "The evidence indicates that a controlled fault was triggered for the tasks.list operation in the dev environment, but the specific runtime signal TASKFLOW_P4_FAULT_MODE=list_fail is not present in the collected data. Therefore, the most likely cause is a generic controlled fault, not necessarily the list_fail mode.",
+    "proposed_action": null,
+    "escalation": {
+      "decision": "escalate",
+      "reason": "The required runtime signal TASKFLOW_P4_FAULT_MODE=list_fail is missing; the evidence does not confirm that the fault mode matches the recover_task_list_dev_fault precondition."
+    },
+    "missing_evidence": [
+      "Explicit runtime signal TASKFLOW_P4_FAULT_MODE=list_fail in logs or environment variables",
+      "Application configuration or debug output indicating the active fault mode",
+      "Additional trace attributes that could confirm the fault mode"
+    ]
+  },
+  "authorization": {
+    "decision": "not_authorized",
+    "action_authorized": false,
+    "execution_permitted": false
+  },
+  "execution": {
+    "performed": false,
+    "action_id": null,
+    "reason": "The responder escalated because the required runtime fault-mode precondition was not present in the bounded evidence."
+  },
+  "recovery_verification": {
+    "result": "verified",
+    "checked_at": "2026-10-06T08:41:29Z",
+    "endpoint": "https://dev-api.zctaskflow.athing.cc/api/tasks",
+    "http_status": "200",
+    "json_array": true,
+    "mutation_performed": false,
+    "relationship": "independent current-state verification; no P5 action was executed for this incident"
+  }
+}

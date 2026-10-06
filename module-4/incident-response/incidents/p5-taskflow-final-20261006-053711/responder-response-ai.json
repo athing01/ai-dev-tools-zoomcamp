@@ -1,0 +1,31 @@
+{
+  "incident_id": "p5-taskflow-final-20261006-053711",
+  "evidence_summary": [
+    "Application traces show a 503 status for GET /api/tasks with trace ID a45bdabe5fffcecbc34a6dc1ade69f6c.",
+    "Prometheus metrics report an error rate of 0.0333 for the tasks.list operation during the evidence window.",
+    "Loki logs contain a single entry: \"Task list failed: P4 controlled fault\" with error_type \"controlled_fault\" and taskflow_environment \"dev\".",
+    "All collected sources (application, metrics, logs, traces) are present and correlate to the same trace ID."
+  ],
+  "likely_cause": "The evidence indicates that a controlled fault was triggered for the tasks.list operation in the dev environment, but the specific runtime signal TASKFLOW_P4_FAULT_MODE=list_fail is not present in the collected data. Therefore, the most likely cause is a generic controlled fault, not necessarily the list_fail mode.",
+  "confidence": {
+    "level": "medium",
+    "uncertainty": "Evidence confirms a controlled fault but does not provide the explicit TASKFLOW_P4_FAULT_MODE=list_fail signal required to justify the recover_task_list_dev_fault action."
+  },
+  "proposed_action": null,
+  "escalation": {
+    "decision": "escalate",
+    "reason": "The required runtime signal TASKFLOW_P4_FAULT_MODE=list_fail is missing; the evidence does not confirm that the fault mode matches the recover_task_list_dev_fault precondition."
+  },
+  "rationale": "The logs, traces, and metrics all point to a controlled fault affecting the tasks.list endpoint in the dev environment. However, the exact fault mode signal that would trigger the allowlisted recovery action is absent. Without that confirmation, executing the recovery action could be unsafe or ineffective. Escalation is therefore warranted to obtain the missing signal or additional diagnostics.",
+  "missing_evidence": [
+    "Explicit runtime signal TASKFLOW_P4_FAULT_MODE=list_fail in logs or environment variables",
+    "Application configuration or debug output indicating the active fault mode",
+    "Additional trace attributes that could confirm the fault mode"
+  ],
+  "responder": {
+    "model": "gpt-oss:20b",
+    "provider": "litellm",
+    "adapter": "openai-compatible-v1",
+    "configuration_ref": "local-litellm-gpt-oss:20b"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "verifier_version": "1",
+  "incident_id": "p5-taskflow-final-20261006-053711",
+  "checked_at": "2026-10-06T08:41:29Z",
+  "endpoint": "https://dev-api.zctaskflow.athing.cc/api/tasks",
+  "operation": "tasks.list",
+  "environment": "dev",
+  "result": "verified",
+  "reason": "GET /api/tasks returned HTTP 200 with a valid JSON array",
+  "http_status": "200",
+  "response_bytes": 2,
+  "json_array": true,
+  "mutation_performed": false
+}
