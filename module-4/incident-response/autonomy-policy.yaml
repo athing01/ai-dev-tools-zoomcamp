@@ -1,0 +1,107 @@
+version: 1
+
+policy:
+  name: taskflow-p5-autonomy
+  mode: deny-by-default
+
+  safety:
+    model_confidence_is_authority: false
+    free_form_model_output_is_executable: false
+    arbitrary_command_execution: false
+    production_action: deny
+
+  authorization:
+    required_for_mutation: true
+    mode: human_manual
+    authorization_is_external_to_model: true
+
+  allowed_actions:
+    - id: recover_task_list_dev_fault
+      description: >
+        Recover the TaskFlow GET /api/tasks controlled DEV fault by disabling
+        the active P4 fault mode and recreating the backend service only.
+
+      scope:
+        application: taskflow
+        environment: dev
+        operation: tasks.list
+        alert_uid: taskflow-p4-tasks-list-failure
+        runtime_directory: /opt/taskflow-m4-dev
+        compose_project: taskflow-m4-dev
+        service: backend
+
+      preconditions:
+        - field: environment
+          operator: equals
+          value: dev
+        - field: operation
+          operator: equals
+          value: tasks.list
+        - field: alert_uid
+          operator: equals
+          value: taskflow-p4-tasks-list-failure
+        - field: fault_mode
+          operator: equals
+          value: list_fail
+        - field: runtime_directory
+          operator: equals
+          value: /opt/taskflow-m4-dev
+        - field: compose_project
+          operator: equals
+          value: taskflow-m4-dev
+
+      permitted_effects:
+        - change: TASKFLOW_P4_FAULT_MODE
+          from: list_fail
+          to: off
+        - action: recreate_service
+          service: backend
+
+      prohibited_effects:
+        - service: frontend
+        - service: caddy
+        - action: database_migration
+        - action: release_state_update
+        - action: artifact_rebuild
+        - action: production_deployment
+        - action: production_rollback
+        - action: arbitrary_shell_command
+        - action: arbitrary_compose_command
+        - action: change_any_other_runtime_variable
+
+      execution:
+        executor_type: fixed_bounded_procedure
+        human_initiated: true
+        model_may_only_propose_action_id: true
+        preconditions_must_be_revalidated_immediately_before_mutation: true
+        evidence_packet_does_not_establish_execution_preconditions: true
+
+      verification:
+        required: true
+        verifier: runbooks/verify-recovery.sh
+        allowed_outcomes:
+          - verified
+          - unresolved
+          - inconclusive
+
+      audit:
+        record:
+          - incident_id
+          - proposed_action
+          - authorization_decision
+          - approver
+          - authorization_timestamp
+          - actual_action
+          - recovery_result
+
+  escalation:
+    when:
+      - no_authorization
+      - precondition_failure
+      - action_not_in_allowlist
+      - environment_not_dev
+      - evidence_insufficient
+      - responder_output_invalid
+      - recovery_unresolved
+      - recovery_inconclusive
+    action: escalate_without_execution

@@ -1,0 +1,139 @@
+{
+  "artifact": {
+    "kind": "repo-evidence",
+    "path": "module-4/incident-response/incidents/p5-taskflow-alert-20261006-a/evidence.json",
+    "retention": "repository-controlled"
+  },
+  "collector": {
+    "version": "1",
+    "mode": "bounded-read-only"
+  },
+  "incident": {
+    "incident_id": "p5-taskflow-alert-20261006-a",
+    "operation": "tasks.list",
+    "environment": "dev",
+    "release_sha": "cfc5189ffe74e63510b5f041bf38e9b933c5ea9a",
+    "evidence_window": {
+      "start": "2026-10-06T02:38:00Z",
+      "end": "2026-10-06T02:40:40Z",
+      "max_window_seconds": 600,
+      "window_seconds": 160
+    }
+  },
+  "alert": {
+    "uid": "taskflow-p4-tasks-list-failure",
+    "title": "TaskFlow /api/tasks user-impact failure",
+    "state": "firing",
+    "state_source": "external-alert-context",
+    "labels": {
+      "operation": "tasks.list",
+      "severity": "critical",
+      "user_impact": "true"
+    }
+  },
+  "application": {
+    "status_code": 503,
+    "json_shape": "object",
+    "content_type": "application/json",
+    "body_bytes": 48
+  },
+  "metrics": {
+    "requests_rate": {
+      "status": "success",
+      "warnings": [],
+      "data": {
+        "resultType": "matrix",
+        "result": [
+          {
+            "metric": {
+              "outcome": "error"
+            },
+            "values": [
+              [
+                1791254280,
+                "0"
+              ],
+              [
+                1791254340,
+                "0"
+              ],
+              [
+                1791254400,
+                "0"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "errors_rate": {
+      "status": "success",
+      "warnings": [],
+      "data": {
+        "resultType": "matrix",
+        "result": [
+          {
+            "metric": {},
+            "values": [
+              [
+                1791254280,
+                "0"
+              ],
+              [
+                1791254340,
+                "0"
+              ],
+              [
+                1791254400,
+                "0"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "logs": {
+    "status": "success",
+    "data": {
+      "resultType": "streams",
+      "result": []
+    }
+  },
+  "traces": {
+    "traces": [
+      {
+        "traceID": "3e0f33e71fa9af0b4fb4bffd9b7e8c47",
+        "rootServiceName": "taskflow-backend",
+        "rootTraceName": "GET /api/tasks",
+        "startTimeUnixNano": "1791254347336043081",
+        "durationMs": 5
+      }
+    ],
+    "metrics": {
+      "inspectedBytes": "23542",
+      "totalBlocks": 1,
+      "completedJobs": 1,
+      "totalJobs": 1,
+      "totalBlockBytes": "36421"
+    }
+  },
+  "safety": {
+    "arbitrary_commands": false,
+    "arbitrary_queries": false,
+    "production_access": false,
+    "secrets_included": false,
+    "full_application_response_retained": false,
+    "full_trace_payload_retained": false
+  },
+  "collection": {
+    "partial": false,
+    "source_statuses": {
+      "application": true,
+      "prom_requests": true,
+      "prom_errors": true,
+      "loki": true,
+      "tempo": true
+    }
+  }
+}
