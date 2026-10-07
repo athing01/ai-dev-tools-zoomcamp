@@ -1,0 +1,70 @@
+{
+  "finding_id": "M4-P6A-002",
+  "origin": {
+    "type": "semgrep",
+    "name": "Semgrep 1.179.0",
+    "rule_or_check": "Grouped mutable GitHub Action references in protected M3 workflows"
+  },
+  "provenance": {
+    "scan_or_review_id": "semgrep-baseline-fba6a3945b0b",
+    "timestamp": "2026-10-07T12:56:38+07:00",
+    "source_revision": "fba6a3945b0b59069580a2e2df6423f2503eb7eb",
+    "scope_reference": ".github/workflows/ci.yml; .github/workflows/deploy.yml",
+    "tool_version": "1.179.0",
+    "configuration_reference": "uvx semgrep --config=auto --json module-4 .github/workflows"
+  },
+  "target": {
+    "component": "github-workflow",
+    "reference": ".github/workflows/ci.yml; .github/workflows/deploy.yml",
+    "environment": "M3 baseline"
+  },
+  "observation": {
+    "summary": "Baseline Semgrep reported 15 mutable GitHub Action references in the protected Module 3 workflows. The observation is inherited from the protected M3 baseline and is outside the P6-A remediation boundary.",
+    "classification": "informational-observation"
+  },
+  "evidence": [
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/semgrep.json",
+      "excerpt_or_note": "Baseline Semgrep raw JSON containing the 15 M3 mutable-action observations.",
+      "sha256": "cab0ed7f870f03c4094fca03340388032a3adf260950779958199e9038abc94e"
+    },
+    {
+      "type": "workflow-file",
+      "reference": ".github/workflows/ci.yml",
+      "excerpt_or_note": "Protected M3 CI workflow reviewed as an inherited baseline asset.",
+      "sha256": "249320aa634b2276594fe2a39126780e81be2363e454116af60f7ca6670d9a84"
+    },
+    {
+      "type": "workflow-file",
+      "reference": ".github/workflows/deploy.yml",
+      "excerpt_or_note": "Protected M3 deployment workflow reviewed as an inherited baseline asset.",
+      "sha256": "8daae1d91bf51050c48f98c159c2ac1cd27c8b322ce78735ff883c87412863cc"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/runs/human-disposition.md",
+      "excerpt_or_note": "Human review explicitly records inherited/out-of-scope disposition.",
+      "sha256": "19daec3a714493f2af42ef7f9c45c474f242875b89de4478da42064097a6a50a"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/security-audit-inventory.md",
+      "excerpt_or_note": "Inventory defines the M3 workflows as protected and requiring preservation.",
+      "sha256": "a6e605d2015b276e971230592b7e663cadec367c8e2d474464ea81518867813d"
+    }
+  ],
+  "review": {
+    "status": "human-dispositioned",
+    "reviewer": "human-reviewer",
+    "review_timestamp": "2026-10-07T11:18:07Z",
+    "disposition": {
+      "type": "informational-observation",
+      "rationale": "The observation is inherited from the protected M3 baseline and is outside P6-A remediation scope. The P6-A security review preserves the established M3 workflow boundary rather than silently modifying Module 3 assets."
+    }
+  },
+  "remediation": {
+    "status": "not-required",
+    "reference": "M3 baseline maintenance scope"
+  }
+}

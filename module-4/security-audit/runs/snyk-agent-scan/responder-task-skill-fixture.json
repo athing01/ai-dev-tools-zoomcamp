@@ -1,0 +1,17 @@
+{
+  "scan_path_responses": [
+    {
+      "client": "/tmp/taskflow-responder-skill/SKILL.md",
+      "path": "/tmp",
+      "server_risks": [],
+      "skill_risks": [],
+      "error": {
+        "message": "Daily usage limit reached for the public version of Agent-Scan. Unlock higher limits and enterprise features by contacting us at https://evo.ai.snyk.io/#contact-us.",
+        "exception": "429, message='Too Many Requests', url='https://api.snyk.io/hidden/mcp-scan/cli/analysis-machine?version=2026-07-10'",
+        "traceback": "Traceback (most recent call last):\n  File \"/home/athing/.cache/uv/archive-v0/CiiCAFKL9Y7DuBwGoNbxm/lib/python3.12/site-packages/agent_scan/verify_api.py\", line 536, in analyze_machine\n    response.raise_for_status()\n  File \"/home/athing/.cache/uv/archive-v0/CiiCAFKL9Y7DuBwGoNbxm/lib/python3.12/site-packages/aiohttp/client_reqrep.py\", line 842, in raise_for_status\n    raise ClientResponseError(\naiohttp.client_exceptions.ClientResponseError: 429, message='Too Many Requests', url='https://api.snyk.io/hidden/mcp-scan/cli/analysis-machine?version=2026-07-10'\n",
+        "is_failure": true,
+        "category": "analysis_error"
+      }
+    }
+  ]
+}

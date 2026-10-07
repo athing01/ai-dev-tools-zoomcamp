@@ -1,0 +1,16 @@
+{
+  "scan_path_responses": [
+    {
+      "client": "module-4/incident-response/responder-task.md",
+      "path": "module-4/incident-response/responder-task.md",
+      "server_risks": [],
+      "skill_risks": [],
+      "error": {
+        "message": "could not parse file **REDACTED**",
+        "exception": "None",
+        "is_failure": true,
+        "category": "parse_error"
+      }
+    }
+  ]
+}

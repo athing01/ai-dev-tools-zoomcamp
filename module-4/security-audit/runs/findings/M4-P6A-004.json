@@ -1,0 +1,58 @@
+{
+  "finding_id": "M4-P6A-004",
+  "origin": {
+    "type": "semgrep",
+    "name": "Semgrep 1.179.0",
+    "rule_or_check": "Bun minimum release age below Semgrep recommendation"
+  },
+  "provenance": {
+    "scan_or_review_id": "semgrep-baseline-fba6a3945b0b",
+    "timestamp": "2026-10-07T12:56:38+07:00",
+    "source_revision": "fba6a3945b0b59069580a2e2df6423f2503eb7eb",
+    "scope_reference": "module-4/frontend/bunfig.toml",
+    "tool_version": "1.179.0",
+    "configuration_reference": "uvx semgrep --config=auto --json module-4 .github/workflows"
+  },
+  "target": {
+    "component": "runtime-configuration",
+    "reference": "module-4/frontend/bunfig.toml",
+    "environment": "build"
+  },
+  "observation": {
+    "summary": "Semgrep identified a Bun minimum-release-age policy of 86400 seconds (24 hours), below the scanner's 604800-second (7-day) hardening recommendation. The repository does have a release-age control; the observation is a supply-chain hardening gap rather than an absent control.",
+    "classification": "security-control-gap"
+  },
+  "evidence": [
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/semgrep.json",
+      "excerpt_or_note": "Baseline Semgrep raw JSON containing the Bun release-age observation.",
+      "sha256": "cab0ed7f870f03c4094fca03340388032a3adf260950779958199e9038abc94e"
+    },
+    {
+      "type": "configuration",
+      "reference": "module-4/frontend/bunfig.toml",
+      "excerpt_or_note": "Configured minimumReleaseAge=86400.",
+      "sha256": "366fc9712878c09fe0fee77df1f41a1614b45c561f673f53d9bc39a9fc7b6569"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/runs/human-disposition.md",
+      "excerpt_or_note": "Human review accepts the existing 24-hour policy as a hardening gap without P6-A remediation.",
+      "sha256": "19daec3a714493f2af42ef7f9c45c474f242875b89de4478da42064097a6a50a"
+    }
+  ],
+  "review": {
+    "status": "human-dispositioned",
+    "reviewer": "human-reviewer",
+    "review_timestamp": "2026-10-07T11:18:07Z",
+    "disposition": {
+      "type": "confirmed-accepted-risk",
+      "rationale": "The repository already enforces a 24-hour dependency release-age delay. Semgrep recommends a stronger 7-day delay, so the residual issue is a hardening gap rather than absence of control. P6-A retains the existing policy rather than changing build behavior without an explicit compatibility decision."
+    }
+  },
+  "remediation": {
+    "status": "not-required",
+    "reference": "Accepted P6-A hardening gap; revisit with future supply-chain policy decision"
+  }
+}

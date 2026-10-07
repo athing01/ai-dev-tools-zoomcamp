@@ -1,0 +1,7 @@
+repository=git@github.com:athing01/ai-dev-tools-zoomcamp.git
+commit=fba6a3945b0b59069580a2e2df6423f2503eb7eb
+tree=168bd65b11678f0b24dbfd9225c7efefc2a173e9
+semgrep_version=1.179.0
+command=uvx semgrep --config=auto --json module-4 .github/workflows
+exit_status=0
+timestamp=2026-10-07T12:56:38+07:00

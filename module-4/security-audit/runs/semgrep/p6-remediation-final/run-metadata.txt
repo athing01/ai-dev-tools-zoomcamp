@@ -1,0 +1,5 @@
+exit_code=0
+source_revision=7906eb5fbe3c75bb967926e048b28d4cbf912931
+semgrep_version=1.179.0
+scan_scope=module-4 .github/workflows
+verification_timestamp=2026-10-07T10:34:04Z
