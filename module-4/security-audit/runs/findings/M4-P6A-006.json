@@ -1,0 +1,64 @@
+{
+  "finding_id": "M4-P6A-006",
+  "origin": {
+    "type": "semgrep",
+    "name": "Semgrep 1.179.0",
+    "rule_or_check": "Dynamic urllib URL in responder"
+  },
+  "provenance": {
+    "scan_or_review_id": "semgrep-baseline-fba6a3945b0b",
+    "timestamp": "2026-10-07T12:56:38+07:00",
+    "source_revision": "fba6a3945b0b59069580a2e2df6423f2503eb7eb",
+    "scope_reference": "module-4/incident-response/responder.py",
+    "tool_version": "1.179.0",
+    "configuration_reference": "uvx semgrep --config=auto --json module-4 .github/workflows"
+  },
+  "target": {
+    "component": "responder-adapter",
+    "reference": "module-4/incident-response/responder.py",
+    "environment": "incident-response"
+  },
+  "observation": {
+    "summary": "Semgrep identified a dynamic URL passed to urllib in the OpenAI-compatible responder adapter. Human review confirmed that the responder base URL is supplied through trusted process configuration and is not derived from incident evidence, model output, or attacker-controlled application input.",
+    "classification": "informational-observation"
+  },
+  "evidence": [
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/semgrep.json",
+      "excerpt_or_note": "Baseline Semgrep raw JSON containing the responder dynamic-URL observation.",
+      "sha256": "cab0ed7f870f03c4094fca03340388032a3adf260950779958199e9038abc94e"
+    },
+    {
+      "type": "source-file",
+      "reference": "module-4/incident-response/responder.py",
+      "excerpt_or_note": "Responder adapter source containing runtime-configured endpoint access.",
+      "sha256": "5936092d3acd1f2730e491f48ae63e6d8bf815d787b242c485b3f62954c8592b"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/runs/human-disposition.md",
+      "excerpt_or_note": "Human review records false-positive disposition and endpoint-control boundary condition.",
+      "sha256": "19daec3a714493f2af42ef7f9c45c474f242875b89de4478da42064097a6a50a"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/security-audit-inventory.md",
+      "excerpt_or_note": "Audit inventory identifies the adapter destination and credential boundary as an explicit review area.",
+      "sha256": "a6e605d2015b276e971230592b7e663cadec367c8e2d474464ea81518867813d"
+    }
+  ],
+  "review": {
+    "status": "human-dispositioned",
+    "reviewer": "human-reviewer",
+    "review_timestamp": "2026-10-07T11:18:07Z",
+    "disposition": {
+      "type": "false-positive-not-applicable",
+      "rationale": "The reviewed responder endpoint is operator-controlled runtime configuration and is not derived from incident evidence, model output, or attacker-controlled input. The reviewed deployment path does not expose the endpoint as user-controlled runtime data. Therefore the generic dynamic-URL pattern does not represent an SSRF/data-exfiltration finding in the reviewed P6-A scope. Re-review is required if endpoint provenance or control changes."
+    }
+  },
+  "remediation": {
+    "status": "not-required",
+    "reference": "Configuration-specific false-positive disposition; re-review if endpoint provenance/control changes"
+  }
+}

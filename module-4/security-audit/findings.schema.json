@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taskflow.local/module-4/security-audit/findings.schema.json",
+  "title": "TaskFlow Module 4 Security Audit Finding",
+  "description": "Schema for a single P6-A security-audit finding or candidate observation. Raw scanner/model output is evidence only; a confirmed finding requires explicit human validation and disposition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "finding_id",
+    "origin",
+    "provenance",
+    "target",
+    "observation",
+    "evidence",
+    "review"
+  ],
+  "properties": {
+    "finding_id": {
+      "type": "string",
+      "pattern": "^M4-P6A-[0-9]{3,6}$",
+      "description": "Stable finding identifier assigned by the audit record set."
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "semgrep",
+            "snyk-agent-scan",
+            "model-assisted-review",
+            "human-review",
+            "combined"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_or_check": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scan_or_review_id",
+        "timestamp",
+        "source_revision",
+        "scope_reference"
+      ],
+      "properties": {
+        "scan_or_review_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Git commit, release SHA, or other immutable source identity."
+        },
+        "scope_reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path, component, workflow, configuration, or review-scope reference."
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "configuration_reference": {
+          "type": "string"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "reference"],
+      "properties": {
+        "component": {
+          "type": "string",
+          "enum": [
+            "taskflow-application",
+            "evidence-collector",
+            "responder-task",
+            "responder-adapter",
+            "response-schema",
+            "autonomy-policy",
+            "policy-gate",
+            "bounded-executor",
+            "recovery-verifier",
+            "rollback-runbook",
+            "github-workflow",
+            "aws-iam",
+            "runtime-configuration",
+            "observability",
+            "incident-artifact",
+            "other"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment": {
+          "type": "string"
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "classification"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "security-finding",
+            "security-control-gap",
+            "informational-observation",
+            "requires-further-evidence"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "informational"
+          ]
+        },
+        "cwe": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low", "unknown"]
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "reference"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "scanner-output",
+              "source-file",
+              "configuration",
+              "workflow-file",
+              "runtime-output",
+              "incident-artifact",
+              "manual-review",
+              "other"
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "minLength": 1
+          },
+          "excerpt_or_note": {
+            "type": "string",
+            "maxLength": 6000,
+            "description": "Minimal supporting context. Do not store credentials or secrets."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "human-validated",
+            "human-dispositioned"
+          ]
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "disposition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "rationale"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "confirmed-remediate",
+                "confirmed-accepted-risk",
+                "false-positive-not-applicable",
+                "informational-observation",
+                "requires-further-evidence"
+              ]
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "human-dispositioned"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["reviewer", "review_timestamp", "disposition"]
+          }
+        }
+      ]
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not-required", "open", "in-progress", "remediated", "deferred"]
+        },
+        "reference": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "due_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "review": {
+            "properties": {
+              "status": {
+                "const": "human-dispositioned"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": ["remediation"]
+      }
+    }
+  ]
+}

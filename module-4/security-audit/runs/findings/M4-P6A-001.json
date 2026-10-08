@@ -1,0 +1,82 @@
+{
+  "finding_id": "M4-P6A-001",
+  "origin": {
+    "type": "semgrep",
+    "name": "Semgrep 1.179.0",
+    "rule_or_check": "Grouped mutable GitHub Action references in M4 workflows"
+  },
+  "provenance": {
+    "scan_or_review_id": "semgrep-baseline-fba6a3945b0b",
+    "timestamp": "2026-10-07T12:56:38+07:00",
+    "source_revision": "fba6a3945b0b59069580a2e2df6423f2503eb7eb",
+    "scope_reference": ".github/workflows/ci-module-4.yml; .github/workflows/deploy-module-4.yml; .github/workflows/promote-module-4.yml",
+    "tool_version": "1.179.0",
+    "configuration_reference": "uvx semgrep --config=auto --json module-4 .github/workflows"
+  },
+  "target": {
+    "component": "github-workflow",
+    "reference": ".github/workflows/ci-module-4.yml; .github/workflows/deploy-module-4.yml; .github/workflows/promote-module-4.yml",
+    "environment": "ci/deployment"
+  },
+  "observation": {
+    "summary": "Baseline Semgrep reported 19 mutable GitHub Action references across the three Module 4 workflows. Human review classified the group as an actionable supply-chain hardening control gap within the P6-A remediation boundary. The affected third-party actions were subsequently pinned to verified full commit SHAs.",
+    "classification": "security-control-gap"
+  },
+  "evidence": [
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/semgrep.json",
+      "excerpt_or_note": "Baseline Semgrep raw JSON containing the 19 M4 mutable-action observations.",
+      "sha256": "cab0ed7f870f03c4094fca03340388032a3adf260950779958199e9038abc94e"
+    },
+    {
+      "type": "workflow-file",
+      "reference": ".github/workflows/ci-module-4.yml",
+      "excerpt_or_note": "Reviewed M4 workflow containing affected third-party Action references.",
+      "sha256": "cf93bf78cc062f3243552c921edde49510a5278c0101273bf16b2af8a8076fe8"
+    },
+    {
+      "type": "workflow-file",
+      "reference": ".github/workflows/deploy-module-4.yml",
+      "excerpt_or_note": "Reviewed M4 deployment workflow containing affected third-party Action references.",
+      "sha256": "11886e8a8e067bf17f7fc7c420ddce8082df2a58b5c0a052270b6a0ffdd5541c"
+    },
+    {
+      "type": "workflow-file",
+      "reference": ".github/workflows/promote-module-4.yml",
+      "excerpt_or_note": "Reviewed M4 promotion workflow containing affected third-party Action references.",
+      "sha256": "e0ab726359a72d267503635faff09eb236fda9cc0b9cde38f2908d3a8c850d9b"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/runs/human-disposition.md",
+      "excerpt_or_note": "Human disposition records remediation and subsequent verification/closure.",
+      "sha256": "19daec3a714493f2af42ef7f9c45c474f242875b89de4478da42064097a6a50a"
+    },
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/p6-remediation-final/semgrep.json",
+      "excerpt_or_note": "Final verification scan reports zero M4 mutable-action observations.",
+      "sha256": "5e315c008f13f7e55d98689e2373b91b66af8bad40852d814fd06c01733bf695"
+    },
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/p6-remediation-final/run-metadata.txt",
+      "excerpt_or_note": "Final verification identity: remediation checkpoint, Semgrep version, scope, exit code, and timestamp.",
+      "sha256": "b48e659d64f8627ec675e3944ebbf727e7282ec6952f35779d08f4bb41ed28c8"
+    }
+  ],
+  "review": {
+    "status": "human-dispositioned",
+    "reviewer": "human-reviewer",
+    "review_timestamp": "2026-10-07T11:18:07Z",
+    "disposition": {
+      "type": "confirmed-remediate",
+      "rationale": "M4 workflow dependencies are within the P6-A remediation boundary. The 19 observations share a common supply-chain hardening root cause. Human review directed pinning the affected third-party Actions to verified full commit SHAs. Final verification confirms m4_mutable_action_results=0 with a successful scan."
+    }
+  },
+  "remediation": {
+    "status": "remediated",
+    "reference": "7906eb5fbe3c75bb967926e048b28d4cbf912931"
+  }
+}

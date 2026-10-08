@@ -1,0 +1,76 @@
+{
+  "finding_id": "M4-P6A-005",
+  "origin": {
+    "type": "semgrep",
+    "name": "Semgrep 1.179.0",
+    "rule_or_check": "uv dependency cooldown absent"
+  },
+  "provenance": {
+    "scan_or_review_id": "semgrep-baseline-fba6a3945b0b",
+    "timestamp": "2026-10-07T12:56:38+07:00",
+    "source_revision": "fba6a3945b0b59069580a2e2df6423f2503eb7eb",
+    "scope_reference": "module-4/incident-response/pyproject.toml",
+    "tool_version": "1.179.0",
+    "configuration_reference": "uvx semgrep --config=auto --json module-4 .github/workflows"
+  },
+  "target": {
+    "component": "runtime-configuration",
+    "reference": "module-4/incident-response/pyproject.toml",
+    "environment": "incident-response"
+  },
+  "observation": {
+    "summary": "Baseline Semgrep identified the absence of a uv dependency cooldown policy in the incident-response environment. Human review classified this as an actionable supply-chain hardening control gap and remediated it with uv exclude-newer=7 days.",
+    "classification": "security-control-gap"
+  },
+  "evidence": [
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/semgrep.json",
+      "excerpt_or_note": "Baseline Semgrep raw JSON containing the uv cooldown observation.",
+      "sha256": "cab0ed7f870f03c4094fca03340388032a3adf260950779958199e9038abc94e"
+    },
+    {
+      "type": "configuration",
+      "reference": "module-4/incident-response/pyproject.toml",
+      "excerpt_or_note": "Remediated uv policy includes required-version and exclude-newer=7 days.",
+      "sha256": "3d1b5691c86f5fd64241eb4db925417f216ca9afca2e14339a05e38d99f10db6"
+    },
+    {
+      "type": "manual-review",
+      "reference": "module-4/security-audit/runs/human-disposition.md",
+      "excerpt_or_note": "Human disposition records remediation and subsequent verification/closure.",
+      "sha256": "19daec3a714493f2af42ef7f9c45c474f242875b89de4478da42064097a6a50a"
+    },
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/p6-remediation-uv/semgrep.json",
+      "excerpt_or_note": "Post-remediation Semgrep scan reports zero uv cooldown observations.",
+      "sha256": "9f14c0c8cb6d06558f3e497711c66308cd27c52ca5f33047ac178661b7d55185"
+    },
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/p6-remediation-uv/run-metadata.txt",
+      "excerpt_or_note": "uv remediation verification metadata.",
+      "sha256": "bde294368bfed77c2cddf8cec271d398aee9cdbab3b26e1059281bd33adb0120"
+    },
+    {
+      "type": "scanner-output",
+      "reference": "module-4/security-audit/runs/semgrep/p6-remediation-final/semgrep.json",
+      "excerpt_or_note": "Final verification scan continues to report zero uv cooldown observations.",
+      "sha256": "5e315c008f13f7e55d98689e2373b91b66af8bad40852d814fd06c01733bf695"
+    }
+  ],
+  "review": {
+    "status": "human-dispositioned",
+    "reviewer": "human-reviewer",
+    "review_timestamp": "2026-10-07T11:18:07Z",
+    "disposition": {
+      "type": "confirmed-remediate",
+      "rationale": "The missing uv dependency cooldown was within the P6-A remediation boundary. The policy was added as exclude-newer=7 days, uv lock --check and uv sync --locked succeeded, and the verification scans report uv_cooldown_results=0."
+    }
+  },
+  "remediation": {
+    "status": "remediated",
+    "reference": "7906eb5fbe3c75bb967926e048b28d4cbf912931"
+  }
+}
