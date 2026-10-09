@@ -59,7 +59,7 @@ P6-B  Homework 4 / order-tracker execution
 
 P6-A covers Semgrep, Snyk Agent Scan, model-assisted review, human validation and disposition, responder capability and credential boundaries, finding provenance, and final TaskFlow operational/security traceability.
 
-P6-B is a separate Homework 4 exercise against the `order-tracker` starter/fork. Homework 4 evidence is owned by that repository; the TaskFlow repository keeps only a reference/index and does not add order-tracker-specific runtime behavior.
+P6-B is a separate Homework 4 exercise against the [`order-tracker` repository](https://github.com/athing01/order-tracker). Homework 4 evidence is owned by that repository; the TaskFlow repository keeps only a reference/index and does not add order-tracker-specific runtime behavior.
 
 ## Module 3 Boundary
 
