@@ -1,0 +1,2 @@
+[plugins."taskflow-agent-pack@local-repo"]
+enabled = true
