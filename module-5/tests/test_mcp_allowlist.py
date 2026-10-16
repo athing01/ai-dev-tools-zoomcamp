@@ -79,6 +79,17 @@ def test_schema_query_returns_only_allowlisted_schemas() -> None:
         "../../module-4/AGENTS.md",
         "shell",
         "write_file",
+        "$(cat /etc/passwd)",
+        "; cat /etc/passwd",
+        "SECRET_KEY",
+        "DATABASE_URL",
+        ".aws/credentials",
+        ".codex/config.toml",
+        ".venv",
+        "node_modules",
+        "aws_operation",
+        "http_request",
+        "database_query",
     ],
 )
 def test_unknown_queries_are_rejected(query: str) -> None:
@@ -181,6 +192,10 @@ async def test_stdio_tool_enforces_allowlist() -> None:
                     {"path": str(REPO_ROOT / "README.md"), "content": "unsafe"},
                 ),
                 ("run_shell", {"command": "printf unsafe"}),
+                ("read_secret", {"name": "DATABASE_URL"}),
+                ("connect_database", {"query": "SELECT 1"}),
+                ("http_request", {"url": "https://example.invalid"}),
+                ("aws_operation", {"action": "sts:GetCallerIdentity"}),
             ]
 
             for name, arguments in rejected_calls:
