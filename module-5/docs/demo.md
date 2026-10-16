@@ -122,3 +122,74 @@ implementation. Do not claim any command passed during the planning phase.
   `node_modules`, remove them from the disposable worktree before evidence.
 - If a client-version mismatch prevents discovery, record it as a compatibility
   risk and do not silently alter user-global configuration.
+
+## Phase 5 execution record (2026-10-16)
+
+### Demo identity and scope
+
+- Disposable worktree:
+  `/home/athing/project/learning/ai-dev-tools-zoomcamp-m5-demo`
+- Branch: `codex/m5-taskflow-api-demo`
+- Baseline: `53e603c14b724575f5e7aee2733b46f067ae8a62`
+- Primary worktree was clean when demo verification status was captured,
+  before this Phase 5 execution record was added. The primary branch remained
+  `m5/agent-extension-pack` at the same HEAD as its remote.
+- Ten files were modified, all within the isolated Module 3 demo:
+  route, repository protocol, in-memory and SQLAlchemy repositories, response
+  schema, OpenAPI contract, and backend/repository/integration tests.
+- No migration, Module 4, workflow, infrastructure, or production-config changes
+  were made. No commit, merge, or deployment was performed.
+
+### API behavior
+
+`GET /api/tasks/count` returns HTTP 200 with a JSON object in the form
+`{"count": 0}`. `count` is a required non-negative integer, and extra response
+properties are rejected. The in-memory repository uses the collection length;
+the SQLAlchemy repository executes a database count query. OpenAPI generation
+was checked against the runtime response schema.
+
+### Actual validation results
+
+- Focused endpoint tests: **2 passed**.
+- Full backend suite, from `module-3/backend`, using
+  `uv run --locked pytest -q`: **79 passed, 2 deprecation warnings**.
+- Focused repository tests in the Codex run: **25 passed**.
+- Non-API tests excluding the API-dependent suites in the Codex run:
+  **49 passed**.
+- Runtime OpenAPI generation: passed.
+- `git diff --check`: passed.
+- PostgreSQL integration tests: not run because `TEST_DATABASE_URL` was unset.
+  Do not treat this as a passing PostgreSQL integration test.
+- The initial Codex-session API-test hang was not reproduced when running the
+  focused tests and full backend suite from the WSL terminal. No dependency
+  pins were changed to work around it.
+
+### Reviewer findings and runtime discovery
+
+- The pre-implementation review confirmed the proposal is outside Module 3
+  product scope. Implementation proceeded only under explicit authorization
+  for a disposable demonstration.
+- The post-implementation reviewer found no Critical, High, or Medium defects.
+  Its initial Low concern about HTTP execution was superseded by the later
+  successful WSL terminal test runs.
+- The reviewer confirmed the count response/schema wiring and efficient
+  repository implementations.
+- The local marketplace was explicitly registered and the plugin installed in
+  a temporary `CODEX_HOME` before the Skill was invoked. This proves invocation
+  from the installed plugin in that isolated environment, not automatic
+  marketplace discovery in an otherwise unregistered Codex Home.
+- Network isolation was not verified and is not claimed.
+
+### Closure record
+
+- [x] Archived the disposable demo diff at
+      `/tmp/m5-taskflow-api-count-demo.patch` before removing the worktree.
+      SHA-256:
+      `a3d35b871f0d0f291de63863bcc543bf9d3f0c51a9171947c7d7e67d8e0290e6`.
+- [x] Removed `/home/athing/project/learning/ai-dev-tools-zoomcamp-m5-demo`
+      with `git worktree remove --force`, then pruned worktree metadata.
+- [x] Deleted local branch `codex/m5-taskflow-api-demo`.
+- [x] Verified `git worktree list` contains only the primary worktree.
+- [x] Verified primary branch is still `m5/agent-extension-pack`; no demo code
+      was merged. Only the intended Module 5 documentation changes remain.
+- [x] Project owner approved the final documentation diff on 2026-10-16.

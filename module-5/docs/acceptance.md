@@ -111,23 +111,47 @@ Phase ownership for the mandatory checks:
       own executable/dependency cache are separate from validator input access.
 - [ ] No credentials, secrets, production URLs, or AWS permissions are needed.
 
-## Gate 3 — Isolated TaskFlow demo
+## Gate 3 — Isolated TaskFlow demo (execution results)
 
-- [ ] Feature demo starts from a disposable branch/worktree.
-- [ ] Demo starts only after Phase 1 plugin/agent checks, Phase 2 skill checks,
-      and Phase 3 MCP registration/invocation checks are complete.
-- [ ] Instructions are visibly read.
-- [ ] Reusable workflow is invoked.
-- [ ] Specialized API reviewer is invoked.
-- [ ] MCP tool is called with allowed and rejected requests.
-- [ ] MCP invocation uses the documented local stdio registration, not an
-      undocumented manual server launch.
-- [ ] Static plugin validation and real Codex discovery are recorded as
-      separate checks.
-- [ ] Guardrail prevents/checks the protected action.
-- [ ] Focused tests and diff checks run in the disposable copy.
-- [ ] Final diff is reviewed by a human.
-- [ ] Demo branch/worktree is removed or archived and not merged to `main`.
+The temporary `GET /api/tasks/count` feature was implemented and reviewed
+only in the disposable worktree. It remains outside the approved Module 3
+product scope. This is a deliberate exception for Module 5 workflow testing;
+it does not authorize merging or deploying the feature.
+
+- [x] Demo worktree identity, baseline commit, and clean initial status verified.
+- [x] Root instructions, Module 3 instructions, product specification, and
+      relevant API/repository/test sources read.
+- [x] Installed plugin Skill invoked in an isolated temporary Codex Home.
+- [x] Specialized API reviewer invoked before and after implementation.
+- [x] Configured MCP stdio integration returned an allowed response and rejected
+      an invalid query.
+- [x] Static plugin validation and real Codex discovery were checked separately.
+- [x] Plugin-layout, protected-path, and MCP allowlist suites passed.
+- [x] Focused endpoint tests passed: 2 passed.
+- [x] Complete Module 3 backend test suite passed: 79 passed, 2 deprecation
+      warnings, using `uv run --locked pytest -q`.
+- [x] Runtime OpenAPI generation validation passed.
+- [x] `git diff --check` passed; the implementation changes are confined to the
+      10 intended Module 3 demo files.
+- [x] Primary worktree remained clean during demo verification.
+- [x] Project owner approved the final documentation diff on 2026-10-16.
+- [x] Demo worktree removed, local demo branch deleted, and cleanup verified.
+      The diff was archived before cleanup at `/tmp/m5-taskflow-api-count-demo.patch`
+      (SHA-256 recorded in `module-5/docs/demo.md`).
+
+The initial Codex session encountered hanging API tests. Subsequent WSL terminal
+runs passed both focused endpoint tests and the complete backend suite, so the
+earlier HTTP-test concern did not reproduce in the terminal run. No dependency
+pin or lockfile changes were made to work around that session issue.
+
+The SQLAlchemy repository tests use their own test setup and passed as part of
+the backend suite. However, the PostgreSQL integration assertion added in
+`module-3/tests/integration/test_crud.py` was not run against PostgreSQL because
+`TEST_DATABASE_URL` was unset. Do not claim PostgreSQL integration verification.
+
+Runtime plugin installation and Skill invocation required explicit local
+marketplace registration and installation in a temporary `CODEX_HOME`.
+Automatic discovery by an otherwise unregistered Codex Home remains unverified.
 
 ## Gate 4 — Regression and security review
 
