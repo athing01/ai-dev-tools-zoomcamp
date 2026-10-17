@@ -53,9 +53,9 @@ plugins/taskflow-agent-pack/
 .github/workflows/ci-module-5.yml
 ```
 
-These are future implementation paths; P1 creates none of them except the five
+These are future implementation paths; Phase 1 creates none of them except the five
 requested Markdown documents. The implementation must use the pinned course
-tooling (`uv 0.12.23`) and must not create environments or install dependencies in P1.
+tooling (`uv 0.12.23`) and must not create environments or install dependencies in Phase 1.
 
 `module-5/pyproject.toml` and `module-5/uv.lock` define a dedicated validation
 and guardrail-test project. It will declare `pytest` as a development dependency,
