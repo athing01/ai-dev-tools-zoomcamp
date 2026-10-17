@@ -15,26 +15,54 @@ The extension is advisory review tooling. It does not authorize application chan
 
 ## Repository map
 
+The tree below highlights the repository paths relevant to Module 5 and is relative to the repository root. Unrelated modules and existing workflow files are omitted. Module 5 files live under `module-5/`; the plugin, Codex configuration, and Module 5 CI workflow are at the repository level.
+
 ```text
-.agents/plugins/marketplace.json
-.codex/agents/taskflow-api-reviewer.toml
-.codex/config.toml
-plugins/taskflow-agent-pack/
-  plugin.json
-  skills/taskflow-api-review/SKILL.md
-module-5/
-  implementation-plan.md
-  docs/
-    acceptance.md
-    agent-extension-pack.md
-    permissions.md
-    demo.md
-  guardrails/
-  mcp/
-  tests/
-  pyproject.toml
-  uv.lock
-.github/workflows/ci-module-5.yml
+ai-dev-tools-zoomcamp/
+├── AGENTS.md
+├── .agents/
+│   └── plugins/
+│       └── marketplace.json
+├── .codex/
+│   ├── agents/
+│   │   └── taskflow-api-reviewer.toml
+│   └── config.toml
+├── .github/
+│   └── workflows/
+│       └── ci-module-5.yml
+├── plugins/
+│   └── taskflow-agent-pack/
+│       ├── plugin.json
+│       └── skills/
+│           └── taskflow-api-review/
+│               └── SKILL.md
+└── module-5/
+    ├── README.md
+    ├── implementation-plan.md
+    ├── docs/
+    │   ├── acceptance.md
+    │   ├── agent-extension-pack.md
+    │   ├── permissions.md
+    │   └── demo.md
+    ├── guardrails/
+    │   ├── validate_official_plugin_schema.py
+    │   ├── validate_plugin_layout.py
+    │   ├── protected_paths.py
+    │   ├── test_plugin_layout.py
+    │   └── test_protected_paths.py
+    ├── mcp/
+    │   ├── README.md
+    │   ├── pyproject.toml
+    │   ├── taskflow_readonly_server.py
+    │   └── uv.lock
+    ├── tests/
+    │   ├── fixtures/
+    │   │   └── plugin-manifests/
+    │   │       ├── schema-invalid-missing-schema.json
+    │   │       └── schema-invalid-name-type.json
+    │   └── test_mcp_allowlist.py
+    ├── pyproject.toml
+    └── uv.lock
 ```
 
 ## Quick validation
