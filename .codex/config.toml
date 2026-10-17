@@ -1,0 +1,6 @@
+[plugins."taskflow-agent-pack@local-repo"]
+enabled = true
+
+[mcp_servers.taskflow_readonly]
+command = "uv"
+args = ["run", "--locked", "--project", "module-5/mcp", "python", "module-5/mcp/taskflow_readonly_server.py"]

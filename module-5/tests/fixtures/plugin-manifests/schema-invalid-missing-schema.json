@@ -1,0 +1,5 @@
+{
+  "name": "taskflow-agent-pack",
+  "version": "0.1.0",
+  "description": "Portable, read-only TaskFlow API review workflow for checking contract changes, compatibility risks, and test coverage."
+}

@@ -1,0 +1,18 @@
+[project]
+name = "taskflow-readonly-mcp"
+version = "0.1.0"
+description = "Bounded read-only MCP access to the TaskFlow OpenAPI contract."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "mcp>=1.28,<2",
+    "PyYAML>=6.0.2,<7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<9",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["../tests"]

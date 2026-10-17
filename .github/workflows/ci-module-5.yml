@@ -1,0 +1,181 @@
+name: CI — Module 5
+
+on:
+  push:
+    paths:
+      - "AGENTS.md"
+      - ".agents/plugins/**"
+      - ".codex/agents/**"
+      - ".codex/config.toml"
+      - "module-5/**"
+      - "plugins/taskflow-agent-pack/**"
+      - ".github/workflows/ci-module-5.yml"
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - ".agents/plugins/**"
+      - ".codex/agents/**"
+      - ".codex/config.toml"
+      - "module-5/**"
+      - "plugins/taskflow-agent-pack/**"
+      - ".github/workflows/ci-module-5.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-5-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validation-and-protected-paths:
+    name: Validation and protected-path guardrail
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv 0.12.23
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.23"
+          enable-cache: false
+
+      - name: Resolve protected-path comparison revisions
+        id: resolve-shas
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PATH: ${{ github.event_path }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          is_commit_sha() {
+            [[ "$1" =~ ^[0-9a-fA-F]{40}$ ]]
+          }
+
+          verify_commit() {
+            local revision="$1"
+            local label="$2"
+            if ! is_commit_sha "$revision"; then
+              echo "${label} is not a 40-character commit SHA: ${revision:-<empty>}" >&2
+              return 1
+            fi
+            if ! git rev-parse --verify "${revision}^{commit}" >/dev/null 2>&1; then
+              echo "${label} is not available as a commit in the checkout: ${revision}" >&2
+              return 1
+            fi
+          }
+
+          base_sha=""
+          head_sha=""
+
+          case "$EVENT_NAME" in
+            pull_request)
+              base_sha="$(jq -r '.pull_request.base.sha // empty' "$EVENT_PATH")"
+              head_sha="$(jq -r '.pull_request.head.sha // empty' "$EVENT_PATH")"
+              verify_commit "$base_sha" "Pull request base SHA"
+              verify_commit "$head_sha" "Pull request head SHA"
+              ;;
+            push)
+              head_sha="$PUSH_HEAD_SHA"
+              verify_commit "$head_sha" "Push head SHA"
+
+              before_sha="$PUSH_BEFORE_SHA"
+              if is_commit_sha "$before_sha" && git rev-parse --verify "${before_sha}^{commit}" >/dev/null 2>&1; then
+                base_sha="$before_sha"
+              else
+                if [[ -z "$DEFAULT_BRANCH" ]]; then
+                  echo "Cannot determine a trustworthy base: repository default branch is unavailable." >&2
+                  exit 1
+                fi
+                default_ref="refs/remotes/origin/${DEFAULT_BRANCH}"
+                if ! git rev-parse --verify "${default_ref}^{commit}" >/dev/null 2>&1; then
+                  if ! git fetch --no-tags origin "refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"; then
+                    echo "Cannot determine a trustworthy base: failed to fetch default branch '${DEFAULT_BRANCH}'." >&2
+                    exit 1
+                  fi
+                fi
+                if ! git rev-parse --verify "${default_ref}^{commit}" >/dev/null 2>&1; then
+                  echo "Cannot determine a trustworthy base: default branch ref is unavailable." >&2
+                  exit 1
+                fi
+                if ! base_sha="$(git merge-base "$default_ref" "$head_sha")" || ! is_commit_sha "$base_sha"; then
+                  echo "Cannot determine a trustworthy base: no merge-base with '${DEFAULT_BRANCH}'." >&2
+                  exit 1
+                fi
+              fi
+              verify_commit "$base_sha" "Resolved base SHA"
+              ;;
+            *)
+              echo "Unsupported event for protected-path comparison: ${EVENT_NAME}" >&2
+              exit 1
+              ;;
+          esac
+
+          printf 'base_sha=%s\n' "$base_sha" >> "$GITHUB_OUTPUT"
+          printf 'head_sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Protected-path comparison base: ${base_sha}"
+          echo "Protected-path comparison head: ${head_sha}"
+
+      - name: Synchronize validation environment
+        run: uv sync --locked --project module-5
+
+      - name: Run official plugin-schema validation
+        run: uv run --locked --project module-5 python module-5/guardrails/validate_official_plugin_schema.py
+
+      - name: Run plugin layout and policy validation
+        run: uv run --locked --project module-5 python module-5/guardrails/validate_plugin_layout.py
+
+      - name: Run plugin layout tests
+        run: uv run --locked --project module-5 pytest module-5/guardrails/test_plugin_layout.py -q
+
+      - name: Run protected-path tests
+        run: uv run --locked --project module-5 pytest module-5/guardrails/test_protected_paths.py -q
+
+      - name: Run protected-path guardrail
+        env:
+          BASE_SHA: ${{ steps.resolve-shas.outputs.base_sha }}
+          HEAD_SHA: ${{ steps.resolve-shas.outputs.head_sha }}
+        run: uv run --locked --project module-5 python module-5/guardrails/protected_paths.py --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  mcp-validation:
+    name: Independent MCP validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv 0.12.23
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.23"
+          enable-cache: false
+
+      - name: Synchronize MCP environment
+        run: uv sync --locked --project module-5/mcp
+
+      - name: Run MCP allowlist tests
+        run: uv run --locked --project module-5/mcp pytest module-5/tests/test_mcp_allowlist.py -q
+
+      - name: Run MCP server self-check
+        run: uv run --locked --project module-5/mcp python module-5/mcp/taskflow_readonly_server.py --self-check

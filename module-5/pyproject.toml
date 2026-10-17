@@ -1,0 +1,19 @@
+[project]
+name = "taskflow-module5-validation"
+version = "0.1.0"
+description = "Isolated validation and protected-path guardrails for Module 5."
+requires-python = ">=3.13,<3.14"
+
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<9",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["guardrails"]

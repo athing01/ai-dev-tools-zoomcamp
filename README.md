@@ -1,6 +1,6 @@
-# AI Dev Tools Zoomcamp
+# AI Dev Tools Zoomcamp 2026
 
-Coursework for the DataTalksClub AI Dev Tools Zoomcamp.
+Coursework for the DataTalksClub AI Dev Tools Zoomcamp 2026.
 
 ## Modules
 
@@ -8,3 +8,4 @@ Coursework for the DataTalksClub AI Dev Tools Zoomcamp.
 - [Module 2 — Mini Kanban Board](./module-2/)
 - [Module 3 — Test, Containerize, and Deploy TaskFlow](./module-3/)
 - [Module 4 — DevOps and Observability for TaskFlow](./module-4/)
+- [Module 5 — Agent Extension Pack](./module-5/)

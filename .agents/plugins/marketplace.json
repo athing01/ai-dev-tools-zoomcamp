@@ -1,0 +1,17 @@
+{
+  "name": "local-repo",
+  "plugins": [
+    {
+      "name": "taskflow-agent-pack",
+      "source": {
+        "source": "local",
+        "path": "./plugins/taskflow-agent-pack"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
