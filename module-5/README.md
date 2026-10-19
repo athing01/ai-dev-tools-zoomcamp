@@ -13,6 +13,24 @@ The extension is advisory review tooling. It does not authorize application chan
 - **Validation and guardrails** — `module-5/guardrails/` contains official-schema validation, project layout/policy validation, protected-path checks, and tests.
 - **Independent CI** — `.github/workflows/ci-module-5.yml` validates Module 5 separately from the protected Module 3/4 workflows.
 
+## Module 5 requirements mapping
+
+The table maps the course's seven minimum requirements to their implementation and recorded verification evidence.
+
+| Minimum requirement | Implementation | Verification evidence |
+|---|---|---|
+| Project instructions | `AGENTS.md` | Instructions and repository boundaries recorded in the demo and acceptance documentation |
+| Reusable workflow, skill, or command | `plugins/taskflow-agent-pack/skills/taskflow-api-review/SKILL.md` | Skill invocation recorded during clean-clone validation after explicit marketplace registration and plugin installation |
+| Specialized subagent | `.codex/agents/taskflow-api-reviewer.toml` | Recorded child session and effective read-only permission evidence in `module-5/docs/acceptance.md` |
+| MCP tool or server | `module-5/mcp/taskflow_readonly_server.py` | Allowed and rejected requests, MCP tests, and server self-check |
+| Hook or guardrail | `module-5/guardrails/` | Positive and negative tests, including protected-path rejection |
+| Plugin or extension package, or custom agent | `plugins/taskflow-agent-pack/plugin.json` and `.agents/plugins/marketplace.json` | Official-schema and layout validation; successful plugin use after explicit marketplace registration and installation |
+| Permission/security note | `module-5/docs/permissions.md` | Capability, data-access, and approval-boundary documentation |
+
+The extension also includes independent CI in `.github/workflows/ci-module-5.yml` and a disposable workflow demonstration documented in `module-5/docs/demo.md`.
+
+**Discovery and permission limitations:** The recorded clean-clone test does not establish automatic marketplace discovery without registration. Read-only mode is not claimed to disable shell execution, and a failed DNS probe alone is not proof of the cause of network denial. See `module-5/docs/acceptance.md` and `module-5/docs/permissions.md` for the recorded evidence and limitations.
+
 ## Repository map
 
 The tree below highlights the repository paths relevant to Module 5 and is relative to the repository root. Unrelated modules and existing workflow files are omitted. Module 5 files live under `module-5/`; the plugin, Codex configuration, and Module 5 CI workflow are at the repository level.
