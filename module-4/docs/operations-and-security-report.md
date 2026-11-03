@@ -48,6 +48,47 @@ The merged release was deployed to the M4 DEV environment and smoke-tested succe
 
 Operational release identity is preserved through the existing M4 release-manifest and deployment mechanisms. Application rollback remains an operational concern separate from the P5 AI incident-response action path; the P5 incident loop does not allow the responder to trigger rollback.
 
+### Current M4 Release Verification — November 3, 2026
+
+The current M4 release was built, deployed to DEV, and manually
+promoted to PROD using one immutable release identity:
+
+```text
+release_sha = 07273bb6931673fc8b4b8c64e2eff7967e86a6cc
+```
+
+The release workflow evidence is:
+
+| Stage | Workflow run | Result |
+|---|---|---|
+| CI, image build, digest resolution, and manifest publication | [M4 CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483) | Success |
+| DEV deployment and release-state verification | [M4 DEV #34](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619655181) | Success |
+| Manual PROD promotion and release-state verification | [M4 PROD #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998) | Success |
+
+The release manifest references these immutable ECR images:
+
+| Image | SHA-256 digest |
+|---|---|
+| Backend | `sha256:f65fd38aa0f9194e95fca60998f798d8862f16308daec64d767eacab9ac1a589` |
+| Frontend | `sha256:f82f381968a4f21c357988e92f4b755a62b30f31c416f7375c3422f67a6c93ad` |
+
+The DEV deployment verified that its release-state record matched
+the requested Git SHA and both exact image digests. Its frontend
+and `GET /api/tasks` smoke tests passed.
+
+The PROD promotion used the existing manifest and runtime bundle
+from the DEV release. It did not rebuild the application images.
+After deployment, the workflow downloaded the PROD release-state
+record and verified that its Git SHA, backend image reference,
+and frontend image reference matched the release manifest exactly.
+The PROD frontend smoke test returned HTTP 200, and
+`GET /api/tasks` returned HTTP 200 with a JSON array.
+
+These workflow results establish successful deployment and
+point-in-time smoke tests for this release. They do not represent
+continuous uptime monitoring or a guarantee against later
+runtime failures.
+
 ### Material Incident
 
 The material P5 incident is:
@@ -366,6 +407,28 @@ The two remediation findings preserve their original `remediate` disposition and
 The P6-A security review found two actionable hardening gaps within scope and verified both remediations. The remaining observations are either inherited from the protected M3 baseline, false positives under the reviewed configuration, or an explicitly accepted hardening gap.
 
 The review does not establish a general absence of security risk. Its conclusion is bounded by the audited source revision, reviewed runtime configuration, scanner coverage limitations, and explicit human dispositions.
+
+### Subsequent M3 Lifecycle Change — November 3, 2026
+
+The original P6-A security finding `M4-P6A-002` records inherited
+M3 mutable GitHub Actions references observed in the security-audit
+baseline. Its original scanner evidence and human disposition
+remain historical audit records.
+
+After that audit baseline, PR
+[#35](https://github.com/athing01/ai-dev-tools-zoomcamp/pull/35)
+retired M3 automatic production deployment. The current
+`.github/workflows/deploy.yml` is a manual-only retirement
+entrypoint and no longer performs an AWS deployment. The original
+deployment workflow is preserved in
+`module-3/docs/archive/deploy-m3.yml`, and the lifecycle decision
+is recorded in `module-3/docs/post-course-lifecycle.md`.
+
+M3 CI remains active, and the shared AWS infrastructure remains
+available for Module 4. This subsequent lifecycle change reduces
+the active M3 deployment surface; it does not rewrite the original
+P6-A scanner findings or imply that all inherited workflow
+observations have been remediated.
 
 ## Final P6-A Acceptance
 

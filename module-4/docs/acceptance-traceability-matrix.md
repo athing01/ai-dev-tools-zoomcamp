@@ -10,10 +10,10 @@ The matrix is an acceptance aid, not a replacement for the underlying evidence. 
 
 | ID | Product requirement | Implementation / control | Evidence | Status |
 |---|---|---|---|---|
-| PS-01 | New changes become available in DEV automatically. | M4 DEV release/deployment workflow and deployment runtime. | `.github/workflows/ci-module-4.yml`; `.github/workflows/deploy-module-4.yml`; `module-4/docs/deployment.md`; `module-4/docs/release-process.md` | Accepted |
-| PS-02 | PROD promotion requires an explicit manual promotion boundary. | Separate M4 promotion workflow with explicit production promotion path. | `.github/workflows/promote-module-4.yml`; `module-4/docs/deployment.md` | Accepted |
-| PS-03 | PROD reuses the same already-built release artifact rather than rebuilding. | Release manifest and exact image-digest promotion model. | `module-4/docs/release-process.md`; M4 promotion workflow | Accepted |
-| PS-04 | The deployed release remains identifiable in the operational trail. | Release SHA and release-state/manifest linkage. | `module-4/docs/release-process.md`; P5 incident record; `module-4/incident-response/incidents/p5-taskflow-final-20261006-053711/incident-record.json` | Accepted |
+| PS-01 | New changes become available in DEV automatically. | M4 DEV release/deployment workflow and deployment runtime. | `.github/workflows/ci-module-4.yml`; `.github/workflows/deploy-module-4.yml`; `module-4/docs/deployment.md`; `module-4/docs/release-process.md`; [M4 CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483); [DEV #34](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619655181) | Accepted |
+| PS-02 | PROD promotion requires an explicit manual promotion boundary. | Separate M4 promotion workflow with explicit production promotion path. | `.github/workflows/promote-module-4.yml`; `module-4/docs/deployment.md`; [PROD promotion #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998) | Accepted |
+| PS-03 | PROD reuses the same already-built release artifact rather than rebuilding. | Release manifest and exact image-digest promotion model. | `module-4/docs/release-process.md`; M4 promotion workflow; [CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483); [PROD promotion #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998) | Accepted |
+| PS-04 | The deployed release remains identifiable in the operational trail. | Release SHA and release-state/manifest linkage. | `module-4/docs/release-process.md`; P5 incident record; [CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483); [DEV #34](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619655181); [PROD promotion #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998); `module-4/incident-response/incidents/p5-taskflow-final-20261006-053711/incident-record.json` | Accepted |
 | PS-05 | At least one important operation is observed end to end with metrics, traces, and structured logs. | `GET /api/tasks` / `tasks.list` instrumentation and telemetry stack. | `module-4/observability/collector.yaml`; `module-4/observability/dashboard.json`; `module-4/observability/alerts.yaml`; P5 incident evidence | Accepted |
 | PS-06 | A real user-impacting application failure produces an actionable alert. | `tasks.list` failure alert for the controlled DEV fault. | `module-4/observability/alerts.yaml`; alert UID `taskflow-p4-tasks-list-failure`; P5 incident record/evidence | Accepted |
 | PS-07 | Incident evidence is bounded, read-only, repeatable, and investigation-ready. | Fixed evidence collection script and bounded incident packet. | `module-4/incident-response/collect-evidence.sh`; `module-4/incident-response/incidents/p5-taskflow-final-20261006-053711/evidence.json` | Accepted |
@@ -23,7 +23,7 @@ The matrix is an acceptance aid, not a replacement for the underlying evidence. 
 | PS-11 | Recovery is independently verified against the original user-impacting condition. | Dedicated recovery verification step separate from responder/executor success. | `module-4/incident-response/runbooks/verify-recovery.sh`; `recovery-verification.json` | Accepted |
 | PS-12 | The material incident trail is auditable and reconstructable. | Incident record links release, alert, evidence, responder assessment, authorization, action disposition, and recovery verification. | `module-4/incident-response/incidents/p5-taskflow-final-20261006-053711/`; `module-4/docs/operations-and-security-report.md` | Accepted |
 | PS-13 | Module 4 has a security review using scanner evidence, model-assisted review, human disposition, and capability/credential review. | P6-A security audit artifacts and structured findings. | `module-4/security-audit/audit-brief.md`; `capability-table.md`; `findings.schema.json`; `scanner-runbook.md`; `runs/` | Accepted with documented Snyk limitation |
-| PS-14 | The completed M3 baseline remains protected during M4 work. | M3 workflows are explicitly treated as protected and were not remediated in P6-A. | `.github/workflows/ci.yml`; `.github/workflows/deploy.yml`; `M4-P6A-002.json`; security audit inventory | Accepted |
+| PS-14 | The completed M3 baseline remains protected during M4 work. | M3 CI remains active; automatic production deployment is retired; the original deployment workflow is archived; shared AWS infrastructure is retained for M4. | `.github/workflows/ci.yml`; `.github/workflows/deploy.yml` (manual-only retirement entrypoint); `module-3/docs/archive/deploy-m3.yml`; `module-3/docs/post-course-lifecycle.md`; `M4-P6A-002.json`; security audit inventory | Accepted |
 | PS-15 | Homework 4 remains a separate evidence workstream and does not redefine TaskFlow acceptance. | Separate P6-B repository/evidence boundary. | `module-4/docs/homework-4-evidence.md`; P6 implementation-plan boundary | Accepted as ownership boundary |
 
 ## 2. P6-A Security Finding Traceability
@@ -49,7 +49,7 @@ P6-A TaskFlow acceptance is supported when all of the following are true:
 [✓] recovery verification is independent of action attempt
 [✓] security findings have explicit human dispositions
 [✓] actionable P6-A hardening findings are remediated and verified
-[✓] M3 protected workflows remain within their established boundary
+[✓] M3 CI remains active; automatic deployment is retired and archived; shared infrastructure remains available for M4
 [✓] material TaskFlow incident and security-review trail is reconstructable
 [✓] Homework 4 remains a separate P6-B evidence stream
 ```
@@ -63,3 +63,34 @@ P6-A owns the TaskFlow security and operational acceptance evidence in this repo
 P6-B owns the Homework 4 runtime evidence in the separate order-tracker homework repository.
 
 Neither workstream is permitted to substitute its evidence for the other's runtime behavior.
+
+## 5. Post-acceptance M4 Release Verification — November 3, 2026
+
+This section records the M4 deployment performed after the original
+P6-A acceptance baseline. It supplements the historical traceability
+records and does not alter the original P5/P6-A evidence identities.
+
+```text
+release_sha = 07273bb6931673fc8b4b8c64e2eff7967e86a6cc
+```
+
+| Stage | Workflow run | Verification |
+|---|---|---|
+| M4 CI and image publication | [CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483) | CI passed; immutable images and release manifest published |
+| DEV deployment | [DEV #34](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619655181) | Release state matched SHA/digests; frontend and Tasks API smoke tests passed |
+| Manual PROD promotion | [PROD #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998) | Existing release promoted; PROD release state matched SHA/digests; frontend and Tasks API smoke tests passed |
+
+The image digests verified in both environments are:
+
+| Image | SHA-256 digest |
+|---|---|
+| Backend | `sha256:f65fd38aa0f9194e95fca60998f798d8862f16308daec64d767eacab9ac1a589` |
+| Frontend | `sha256:f82f381968a4f21c357988e92f4b755a62b30f31c416f7375c3422f67a6c93ad` |
+
+The PROD promotion reused the DEV release manifest and runtime
+bundle without rebuilding the application images. The promotion
+workflow verified the PROD release-state record against the exact
+Git SHA and both manifest image references.
+
+These checks represent point-in-time deployment evidence and
+smoke tests, not a continuous availability guarantee.

@@ -80,6 +80,39 @@ The frontend and API documentation endpoints in both
 environments returned HTTP 200 when checked on
 November 3, 2026.
 
+### Verified Release — November 3, 2026
+
+The current M4 release was built once, deployed to DEV, and
+then promoted to PROD using the same immutable image digests.
+
+```text
+release_sha = 07273bb6931673fc8b4b8c64e2eff7967e86a6cc
+```
+
+| Stage | Workflow run | Result |
+|---|---|---|
+| M4 CI and immutable image build | [CI #36](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619409483) | Success |
+| M4 DEV deployment | [DEV #34](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41619655181) | Success |
+| Manual M4 PROD promotion | [PROD #2](https://github.com/athing01/ai-dev-tools-zoomcamp/actions/runs/41623688998) | Success |
+
+The immutable ECR image digests recorded in the release manifest
+and verified in both environment release-state records are:
+
+| Image | SHA-256 digest |
+|---|---|
+| Backend | `sha256:f65fd38aa0f9194e95fca60998f798d8862f16308daec64d767eacab9ac1a589` |
+| Frontend | `sha256:f82f381968a4f21c357988e92f4b755a62b30f31c416f7375c3422f67a6c93ad` |
+
+The PROD workflow promoted the existing release artifact from
+DEV; it did not rebuild the application images. Both DEV and
+PROD release-state checks matched the requested Git SHA and
+exact image digests. Frontend and Tasks API smoke tests passed
+in both environments.
+
+The workflow runs above provide point-in-time deployment and
+smoke-test evidence; they are not a continuous availability
+guarantee.
+
 For deployment history and operational evidence, see:
 - [DEV deployment workflow](../.github/workflows/deploy-module-4.yml)
 - [PROD promotion workflow](../.github/workflows/promote-module-4.yml)
