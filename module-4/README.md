@@ -89,7 +89,18 @@ For deployment history and operational evidence, see:
 
 ## Module 3 Boundary
 
-Module 4 extends the completed Module 3 baseline. The existing M3 release workflows remain protected and are not silently replaced or modified as part of normal Module 4 work.
+Module 4 builds on the completed Module 3 application baseline.
+
+Module 3 course acceptance was completed in September 2026.
+M3 automatic production deployment was retired on November 3, 2026.
+Module 3 CI remains active.
+
+The historical M3 deployment workflow is preserved in
+[`module-3/docs/archive/deploy-m3.yml`](../module-3/docs/archive/deploy-m3.yml),
+and the post-course lifecycle decision and acceptance evidence are
+documented in [`module-3/docs/post-course-lifecycle.md`](../module-3/docs/post-course-lifecycle.md).
+
+Module 4 continues to use the shared AWS infrastructure.
 
 ```text
 .github/workflows/ci.yml
