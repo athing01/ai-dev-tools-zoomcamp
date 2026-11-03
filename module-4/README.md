@@ -61,9 +61,46 @@ P6-A covers Semgrep, Snyk Agent Scan, model-assisted review, human validation an
 
 P6-B is a separate Homework 4 exercise against the [`order-tracker` repository](https://github.com/athing01/order-tracker). Homework 4 evidence is owned by that repository; the TaskFlow repository keeps only a reference/index and does not add order-tracker-specific runtime behavior.
 
+## Deployed Environments
+
+TaskFlow Module 4 uses separate DEV and PROD deployment
+environments.
+
+- **DEV** receives qualifying changes pushed to `main`
+  after successful Module 4 CI validation.
+- **PROD** requires explicit manual promotion of an existing
+  immutable release artifact that has been deployed to DEV.
+
+| Environment | Frontend | API Documentation |
+|---|---|---|
+| DEV | [TaskFlow DEV](https://dev-app.zctaskflow.athing.cc/) | [API Docs](https://dev-api.zctaskflow.athing.cc/docs) |
+| PROD | [TaskFlow PROD](https://app.zctaskflow.athing.cc/) | [API Docs](https://api.zctaskflow.athing.cc/docs) |
+
+The frontend and API documentation endpoints in both
+environments returned HTTP 200 when checked on
+November 3, 2026.
+
+For deployment history and operational evidence, see:
+- [DEV deployment workflow](../.github/workflows/deploy-module-4.yml)
+- [PROD promotion workflow](../.github/workflows/promote-module-4.yml)
+- [Module 4 implementation plan](implementation-plan.md)
+- [Operations and Security Report](docs/operations-and-security-report.md)
+- [Acceptance Traceability Matrix](docs/acceptance-traceability-matrix.md)
+
 ## Module 3 Boundary
 
-Module 4 extends the completed Module 3 baseline. The existing M3 release workflows remain protected and are not silently replaced or modified as part of normal Module 4 work.
+Module 4 builds on the completed Module 3 application baseline.
+
+Module 3 course acceptance was completed in September 2026.
+M3 automatic production deployment was retired on November 3, 2026.
+Module 3 CI remains active.
+
+The historical M3 deployment workflow is preserved in
+[`module-3/docs/archive/deploy-m3.yml`](../module-3/docs/archive/deploy-m3.yml),
+and the post-course lifecycle decision and acceptance evidence are
+documented in [`module-3/docs/post-course-lifecycle.md`](../module-3/docs/post-course-lifecycle.md).
+
+Module 4 continues to use the shared AWS infrastructure.
 
 ```text
 .github/workflows/ci.yml
