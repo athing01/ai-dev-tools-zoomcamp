@@ -1,12 +1,21 @@
 # TaskFlow Module 3 Deployment
 
-This document describes the current TaskFlow Module 3 deployment architecture and deployment configuration boundaries.
+> **Post-course lifecycle status — 2026-11-03**
+>
+> Module 3 course acceptance was completed in September 2026.
+> M3 automatic production deployment has been retired.
+> Module 3 CI remains active. Shared AWS infrastructure is retained
+> for Module 4. Historical M3 deployment and rollback commands must
+> not be executed against the current shared EC2 runtime.
+
+
+This document preserves the historical TaskFlow Module 3 deployment architecture and configuration boundaries.
 
 ## Deployment Overview
 
-TaskFlow is deployed as a single public application target on AWS.
+During Module 3, TaskFlow was deployed as a single public application target on AWS.
 
-Current public endpoints:
+Public endpoints recorded during the M3 acceptance period:
 
 - Frontend: `https://app.zctaskflow.athing.cc/`
 - Backend API: `https://api.zctaskflow.athing.cc/`
@@ -367,9 +376,9 @@ valid JSON array
 
 The P9 merge-to-main release path was exercised successfully through SSM deployment, release-state verification, and the public smoke tests.
 
-## Current Deployment Verification
+## Historical M3 Deployment Verification (P12, 2026-09-29)
 
-The current AWS deployment has been verified with:
+At the time of M3 final verification, the AWS deployment was verified with:
 
 ```text
 https://app.zctaskflow.athing.cc/     -> HTTP 200

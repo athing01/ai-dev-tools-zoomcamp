@@ -1,6 +1,15 @@
 # TaskFlow Module 3 Release Process
 
-This document is the operational runbook for releasing, rolling back, and recovering the deployed TaskFlow application.
+> **Post-course lifecycle status — 2026-11-03**
+>
+> Module 3 course acceptance was completed in September 2026.
+> M3 automatic production deployment has been retired.
+> Module 3 CI remains active. Shared AWS infrastructure is retained
+> for Module 4. Historical M3 deployment and rollback commands must
+> not be executed against the current shared EC2 runtime.
+
+
+This document preserves the historical Module 3 release, rollback, and recovery procedures. It is no longer an operational runbook for the current shared EC2 runtime.
 
 The deployment architecture and configuration boundaries are documented separately in `docs/deployment.md`. Test strategy and local verification remain in `docs/testing.md`.
 

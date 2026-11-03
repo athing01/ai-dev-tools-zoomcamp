@@ -1,5 +1,16 @@
 # Module 3 — Test, Containerize, and Deploy TaskFlow
 
+> **Post-course lifecycle status — 2026-11-03**
+>
+> Module 3 course acceptance was completed in September 2026.
+> M3 automatic production deployment has been retired.
+> Module 3 CI remains active. Shared AWS infrastructure is retained
+> for Module 4. Historical M3 deployment and rollback commands must
+> not be executed against the current shared EC2 runtime.
+> Full acceptance evidence and the retirement decision are recorded in
+> [post-course-lifecycle.md](docs/post-course-lifecycle.md).
+
+
 TaskFlow is a full-stack mini Kanban board originally built for Module 2.
 
 Module 3 extends the existing application with:
@@ -219,13 +230,13 @@ Pull requests and pushes to `main` run the CI workflow subject to its path filte
 The Module 3 GitHub Actions workflows are stored at the repository root:
 
 - [`ci.yml`](../.github/workflows/ci.yml) — CI checks, tests, integration tests, and container builds.
-- [`deploy.yml`](../.github/workflows/deploy.yml) — gated production release and deployment to AWS.
+- [`deploy.yml`](../.github/workflows/deploy.yml) — retired manual-only notice; no automatic M3 deployment.
 
-## Production CI/CD
+## Historical Production CI/CD (P9)
 
-P9 adds the production release workflow after CI succeeds on `main`.
+The following describes the M3 release design as implemented and verified in September 2026. Automatic M3 deployment was retired on 2026-11-03. The retained `deploy.yml` is now a manual-only no-op notice.
 
-Deployment is triggered by completion of the exact upstream workflow:
+Historically, deployment was triggered by completion of the exact upstream workflow:
 
 ```text
 CI — Module 3
@@ -278,9 +289,9 @@ CloudFormation manages stable infrastructure only. Normal application releases u
 P10 verified the application rollback and recovery path using existing immutable release artifacts.
 The operational procedure, database compatibility rules, stop-the-line conditions, and rehearsal evidence are documented in [`docs/release-process.md`](docs/release-process.md).
 
-## Deployment
+## Historical M3 Deployment Architecture
 
-The current public TaskFlow deployment uses AWS with:
+The M3 deployment used AWS with:
 
 - EC2
 - Docker Compose
@@ -304,7 +315,7 @@ Public API:
 https://api.zctaskflow.athing.cc/
 ```
 
-The current deployment has been verified with:
+At the time of M3 final verification, the deployment was verified with:
 
 ```text
 Frontend -> HTTP 200
