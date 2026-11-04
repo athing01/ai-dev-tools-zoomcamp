@@ -133,14 +133,24 @@ The historical M3 deployment workflow is preserved in
 and the post-course lifecycle decision and acceptance evidence are
 documented in [`module-3/docs/post-course-lifecycle.md`](../module-3/docs/post-course-lifecycle.md).
 
-Module 4 continues to use the shared AWS infrastructure.
+Module 4 continues to use the shared AWS infrastructure
+established for the TaskFlow application baseline.
 
-```text
-.github/workflows/ci.yml
-.github/workflows/deploy.yml
-```
+This infrastructure reuse is independent of the M3
+deployment lifecycle. M3 automatic production deployment
+has been retired, while M3 CI remains active.
 
-Module 4 may reuse compatible foundations from the existing system, while keeping Module 4 scope and operational boundaries explicit.
+The repository-level M3 workflows are:
+
+- `.github/workflows/ci.yml` — active M3 CI
+- `.github/workflows/deploy.yml` — manual-only retirement
+  entrypoint; no AWS deployment is performed.
+
+Module 4 uses its own release workflows:
+
+- `.github/workflows/ci-module-4.yml`
+- `.github/workflows/deploy-module-4.yml`
+- `.github/workflows/promote-module-4.yml`
 
 ## Key Module 4 Artifacts
 
