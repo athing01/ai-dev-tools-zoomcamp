@@ -234,7 +234,20 @@ The Module 3 GitHub Actions workflows are stored at the repository root:
 
 ## Historical Production CI/CD (P9)
 
-The following describes the M3 release design as implemented and verified in September 2026. Automatic M3 deployment was retired on 2026-11-03. The retained `deploy.yml` is now a manual-only no-op notice.
+The following documents the M3 release design as implemented
+and verified in September 2026. This is historical design
+documentation, not an active deployment procedure.
+
+The original M3 deployment workflow is preserved in
+[`docs/archive/deploy-m3.yml`](docs/archive/deploy-m3.yml)
+for historical reference only. This archived workflow must
+not be executed or restored against the current shared EC2
+runtime.
+
+Automatic M3 deployment was retired on 2026-11-03.
+The current repository-level `.github/workflows/deploy.yml`
+is a manual-only no-op retirement notice and performs no
+AWS deployment.
 
 Historically, deployment was triggered by completion of the exact upstream workflow:
 
